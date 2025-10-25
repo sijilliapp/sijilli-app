@@ -74,31 +74,31 @@
 </head>
 <body>
   <!-- PWA Install Banner -->
-  <div id="pwa-install-banner" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: #2196F3; color: white; padding: 12px; text-align: center; z-index: 9999; font-family: Arial, sans-serif; direction: rtl;">
-    <div style="display: flex; align-items: center; justify-content: space-between; max-width: 600px; margin: 0 auto;">
-      <div style="flex: 1;">
-        <strong>أضف سجلي إلى الشاشة الرئيسية</strong>
-        <br>
-        <small>للوصول السريع والسهل</small>
+  <div id="pwa-install-banner" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, #2196F3, #1976D2); color: white; padding: 16px; text-align: center; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; direction: rtl; box-shadow: 0 -4px 12px rgba(0,0,0,0.15); border-radius: 16px 16px 0 0;">
+    <div style="max-width: 400px; margin: 0 auto;">
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">📱 أضف سجلي إلى هاتفك</div>
+        <div style="font-size: 14px; opacity: 0.9;">للوصول السريع والسهل</div>
       </div>
-      <div style="display: flex; gap: 8px;">
-        <button id="pwa-install-btn" style="background: white; color: #2196F3; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">إضافة</button>
-        <button id="pwa-dismiss-btn" style="background: transparent; color: white; border: 1px solid white; padding: 8px 12px; border-radius: 4px; cursor: pointer;">إغلاق</button>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="pwa-install-btn" style="background: white; color: #2196F3; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; flex: 1; max-width: 120px;">إضافة</button>
+        <button id="pwa-dismiss-btn" style="background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; flex: 1; max-width: 120px;">لاحقاً</button>
       </div>
     </div>
   </div>
 
   <!-- Safari Install Instructions -->
-  <div id="safari-install-banner" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: #007AFF; color: white; padding: 16px; text-align: center; z-index: 9999; font-family: Arial, sans-serif; direction: rtl;">
-    <div style="max-width: 600px; margin: 0 auto;">
-      <strong>أضف سجلي إلى الشاشة الرئيسية</strong>
-      <br>
-      <div style="margin: 12px 0; font-size: 14px; line-height: 1.5;">
-        1. اضغط على زر المشاركة <span style="font-size: 18px;">⬆️</span> في الأسفل<br>
-        2. اختر "إضافة إلى الشاشة الرئيسية" <span style="font-size: 18px;">➕</span><br>
-        3. اضغط "إضافة" لتأكيد العملية
+  <div id="safari-install-banner" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, #007AFF, #0056CC); color: white; padding: 20px; text-align: center; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; direction: rtl; box-shadow: 0 -4px 12px rgba(0,0,0,0.15); border-radius: 16px 16px 0 0;">
+    <div style="max-width: 400px; margin: 0 auto;">
+      <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">📱 أضف سجلي إلى الشاشة الرئيسية</div>
+      <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 12px; margin-bottom: 16px; text-align: right;">
+        <div style="font-size: 14px; line-height: 1.6;">
+          <div style="margin-bottom: 8px;">1️⃣ اضغط على زر المشاركة <span style="font-size: 20px;">⬆️</span></div>
+          <div style="margin-bottom: 8px;">2️⃣ اختر "إضافة إلى الشاشة الرئيسية" <span style="font-size: 16px;">➕</span></div>
+          <div>3️⃣ اضغط "إضافة" لتأكيد العملية ✅</div>
+        </div>
       </div>
-      <button id="safari-dismiss-btn" style="background: white; color: #007AFF; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 8px;">فهمت</button>
+      <button id="safari-dismiss-btn" style="background: white; color: #007AFF; border: none; padding: 12px 32px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">فهمت</button>
     </div>
   </div>
 
