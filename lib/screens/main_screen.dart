@@ -1227,28 +1227,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                             ),
                           ),
                           if ((_authService.currentUser?.hijriAdjustment ?? 0) != 0) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.green.shade300,
-                                ),
-                              ),
-                              child: Text(
-                                'تصحيح هجري: ${(_authService.currentUser?.hijriAdjustment ?? 0) >= 0 ? '+' : ''}${_authService.currentUser?.hijriAdjustment ?? 0}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+
                           ],
                         ],
                       ),
@@ -1621,24 +1600,17 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.orange.shade300, width: 0.5),
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(color: Colors.green.shade300),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.tune, size: 10, color: Colors.orange.shade700),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          '${(_authService.currentUser?.hijriAdjustment ?? 0) > 0 ? '+' : ''}${_authService.currentUser?.hijriAdjustment ?? 0}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.orange.shade700,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      'تصحيح هجري: ${(_authService.currentUser?.hijriAdjustment ?? 0) >= 0 ? '+' : ''}${_authService.currentUser?.hijriAdjustment ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.green.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2184,74 +2156,54 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
                         // حقل الملاحظات
                         _buildNotesSection(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
 
-                        // أزرار الإجراءات النهائية
-                        Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _isSaving ? null : _saveAppointment,
-                                onLongPress: _isSaving ? null : _saveAppointmentAndStay,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  decoration: BoxDecoration(
-                                    color: _isSaving ? Colors.grey : const Color(0xFF2196F3),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      _isSaving
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                              ),
-                                            )
-                                          : const Icon(Icons.save, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _isSaving ? 'جاري الحفظ...' : 'حفظ الموعد',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
+                        // زر الحفظ
+                        GestureDetector(
+                          onTap: _isSaving ? null : _saveAppointment,
+                          onLongPress: _isSaving ? null : _saveAppointmentAndStay,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: _isSaving ? Colors.grey : const Color(0xFF2196F3),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _isSaving
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                         ),
-                                      ),
-                                    ],
+                                      )
+                                    : const Icon(Icons.save, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isSaving ? 'جاري الحفظ...' : 'حفظ الموعد',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _isSaving ? null : _resetForm,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('إعادة تعيين'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.grey.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
 
                         // تلميح للمستخدم
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(18),
                             border: Border.all(color: Colors.blue.shade200),
                           ),
                           child: Row(
@@ -2300,7 +2252,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.orange.shade200),
       ),
       child: Column(
@@ -2320,24 +2272,21 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _searchController,
             textAlign: TextAlign.right,
             decoration: InputDecoration(
+              labelText: 'البحث عن ضيوف',
               hintText: 'ابحث بالاسم أو اسم المستخدم...',
-              hintStyle: TextStyle(color: Colors.grey[600]),
-              prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade600),
+                borderRadius: BorderRadius.circular(18),
               ),
-              filled: true,
-              fillColor: Colors.white,
+              prefixIcon: const Icon(Icons.search),
             ),
             onChanged: _filterFriends,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           if (_selectedGuests.isNotEmpty) ...[
             Text(
               'الضيوف المدعوون (${_selectedGuests.length}):',
@@ -2465,33 +2414,17 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
   // حقل الملاحظات
   Widget _buildNotesSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.note_alt, color: Colors.blue.shade600, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextFormField(
-              controller: _notesController,
-              textAlign: TextAlign.right,
-              minLines: 1,
-              maxLines: null, // يتوسع حسب المحتوى
-              decoration: InputDecoration(
-                hintText: 'أضف ملاحظات أو روابط مفيدة للموعد...',
-                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ],
+    return TextFormField(
+      controller: _notesController,
+      minLines: 1,
+      maxLines: null, // يتوسع حسب المحتوى
+      decoration: InputDecoration(
+        labelText: 'ملاحظات الموعد',
+        hintText: 'أضف ملاحظات أو روابط مفيدة للموعد...',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        prefixIcon: const Icon(Icons.note_alt),
       ),
     );
   }
@@ -2624,11 +2557,11 @@ class _SearchScreenState extends State<SearchScreen> {
                             )
                           : null,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide(color: Colors.grey.shade600),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(18),
                         borderSide: const BorderSide(color: Color(0xFF2196F3)),
                       ),
                       filled: true,
@@ -2749,7 +2682,7 @@ class _SearchScreenState extends State<SearchScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
