@@ -181,10 +181,22 @@
       safariInstallBanner.style.display = 'none';
     });
 
-    // Show update notification (only once per session)
+    // Show update notification (only once per update)
     function showUpdateNotification(newWorker) {
+      // Check if we already showed notification for this update
+      const lastUpdateShown = localStorage.getItem('last-update-shown');
+      const currentCacheVersion = 'sijilli-v1.0.1'; // Should match SW cache version
+
+      if (lastUpdateShown === currentCacheVersion) {
+        console.log('Update notification already shown for this version');
+        return;
+      }
+
       if (updateNotificationShown) return;
       updateNotificationShown = true;
+
+      // Mark this update as shown
+      localStorage.setItem('last-update-shown', currentCacheVersion);
 
       // Create update notification
       const updateBanner = document.createElement('div');
@@ -196,27 +208,24 @@
         right: 0;
         background: linear-gradient(135deg, #4CAF50, #45a049);
         color: white;
-        padding: 16px;
+        padding: 8px 16px;
         text-align: center;
         z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         direction: rtl;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       `;
 
       updateBanner.innerHTML = `
-        <div style="max-width: 400px; margin: 0 auto;">
-          <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; max-width: 600px; margin: 0 auto;">
+          <div style="font-size: 14px; font-weight: 500;">
             🔄 تحديث جديد متوفر
           </div>
-          <div style="font-size: 14px; margin-bottom: 12px;">
-            إصدار محسن من سجلي جاهز للتحميل
-          </div>
-          <div style="display: flex; gap: 12px; justify-content: center;">
-            <button id="update-btn" style="background: white; color: #4CAF50; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
-              تحديث الآن
+          <div style="display: flex; gap: 8px;">
+            <button id="update-btn" style="background: white; color: #4CAF50; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px;">
+              تحديث
             </button>
-            <button id="update-dismiss-btn" style="background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+            <button id="update-dismiss-btn" style="background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
               لاحقاً
             </button>
           </div>
@@ -227,13 +236,24 @@
 
       // Update button click
       document.getElementById('update-btn').addEventListener('click', () => {
+        // Disable the button to prevent multiple clicks
+        document.getElementById('update-btn').disabled = true;
+        document.getElementById('update-btn').textContent = 'جاري التحديث...';
+
         newWorker.postMessage({ type: 'SKIP_WAITING' });
-        updateBanner.remove();
 
         // Wait for the new service worker to take control
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
+          // Small delay to ensure SW is fully active
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
         }, { once: true });
+
+        // Remove banner after a short delay
+        setTimeout(() => {
+          updateBanner.remove();
+        }, 500);
       });
 
       // Dismiss button click
