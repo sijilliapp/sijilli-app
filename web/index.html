@@ -107,6 +107,7 @@
     let deferredPrompt;
     let installBanner = document.getElementById('pwa-install-banner');
     let safariInstallBanner = document.getElementById('safari-install-banner');
+    let updateNotificationShown = false;
 
     // Check if app is already installed
     function isAppInstalled() {
@@ -179,6 +180,74 @@
       installBanner.style.display = 'none';
       safariInstallBanner.style.display = 'none';
     });
+
+    // Show update notification (only once per session)
+    function showUpdateNotification(newWorker) {
+      if (updateNotificationShown) return;
+      updateNotificationShown = true;
+
+      // Create update notification
+      const updateBanner = document.createElement('div');
+      updateBanner.id = 'update-banner';
+      updateBanner.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #4CAF50, #45a049);
+        color: white;
+        padding: 16px;
+        text-align: center;
+        z-index: 10000;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        direction: rtl;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      `;
+
+      updateBanner.innerHTML = `
+        <div style="max-width: 400px; margin: 0 auto;">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">
+            🔄 تحديث جديد متوفر
+          </div>
+          <div style="font-size: 14px; margin-bottom: 12px;">
+            إصدار محسن من سجلي جاهز للتحميل
+          </div>
+          <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="update-btn" style="background: white; color: #4CAF50; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+              تحديث الآن
+            </button>
+            <button id="update-dismiss-btn" style="background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+              لاحقاً
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(updateBanner);
+
+      // Update button click
+      document.getElementById('update-btn').addEventListener('click', () => {
+        newWorker.postMessage({ type: 'SKIP_WAITING' });
+        updateBanner.remove();
+
+        // Wait for the new service worker to take control
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        }, { once: true });
+      });
+
+      // Dismiss button click
+      document.getElementById('update-dismiss-btn').addEventListener('click', () => {
+        updateBanner.remove();
+      });
+
+      // Auto-hide after 10 seconds
+      setTimeout(() => {
+        if (updateBanner.parentNode) {
+          updateBanner.remove();
+        }
+      }, 10000);
+    }
   </script>
 
   <!-- Service Worker Registration -->
@@ -193,15 +262,14 @@
             // Check for updates
             registration.addEventListener('updatefound', () => {
               const newWorker = registration.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New content is available, prompt user to refresh
-                  if (confirm('تحديث جديد متوفر. هل تريد إعادة تحميل الصفحة؟')) {
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                    window.location.reload();
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New content is available, show update notification
+                    showUpdateNotification(newWorker);
                   }
-                }
-              });
+                });
+              }
             });
           })
           .catch((error) => {

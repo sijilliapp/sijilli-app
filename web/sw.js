@@ -1,5 +1,5 @@
 // Service Worker for Sijilli PWA
-const CACHE_NAME = 'sijilli-v1.0.0';
+const CACHE_NAME = 'sijilli-v1.0.1';
 const urlsToCache = [
   '/',
   '/main.dart.js',
@@ -23,7 +23,7 @@ self.addEventListener('install', (event) => {
       })
       .then(() => {
         console.log('Service Worker: Installed successfully');
-        return self.skipWaiting();
+        // Don't skip waiting automatically - wait for user confirmation
       })
   );
 });
@@ -43,6 +43,7 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => {
       console.log('Service Worker: Activated successfully');
+      // Take control of all clients immediately
       return self.clients.claim();
     })
   );
@@ -173,8 +174,9 @@ self.addEventListener('notificationclick', (event) => {
 // Message handling
 self.addEventListener('message', (event) => {
   console.log('Service Worker: Message received:', event.data);
-  
+
   if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Service Worker: Skipping waiting...');
     self.skipWaiting();
   }
 });
