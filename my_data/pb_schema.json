@@ -281,6 +281,15 @@
       },
       {
         "hidden": false,
+        "id": "bool4208731335",
+        "name": "isPublic",
+        "presentable": true,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "hidden": false,
         "id": "select1466534506",
         "maxSelect": 1,
         "name": "role",
@@ -293,15 +302,6 @@
           "approved",
           "admin"
         ]
-      },
-      {
-        "hidden": false,
-        "id": "bool4208731335",
-        "name": "isPublic",
-        "presentable": true,
-        "required": false,
-        "system": false,
-        "type": "bool"
       },
       {
         "hidden": false,
@@ -361,7 +361,7 @@
         "hidden": false,
         "id": "number1146066909",
         "max": null,
-        "min": 1,
+        "min": 0,
         "name": "phone",
         "onlyInt": false,
         "presentable": false,
@@ -973,7 +973,7 @@
           "active",
           "deleted",
           "archived",
-          "cancelled_by_host"
+          "cancelled"
         ]
       },
       {

@@ -9,7 +9,9 @@ import '../services/connectivity_service.dart';
 import '../services/timezone_service.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
+import '../models/invitation_model.dart';
 import '../config/constants.dart';
+import '../widgets/appointment_card.dart';
 import 'draft_forms_screen.dart';
 import 'user_profile_screen.dart';
 import 'friends_screen.dart';
@@ -27,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final ConnectivityService _connectivityService = ConnectivityService();
 
   List<AppointmentModel> _appointments = [];
+  Map<String, List<UserModel>> _appointmentGuests = {}; // معرف الموعد -> قائمة الضيوف
+  Map<String, List<InvitationModel>> _appointmentInvitations = {}; // معرف الموعد -> قائمة الدعوات
   bool _isOnline = true;
   late TabController _tabController;
 
@@ -98,6 +102,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           // Also save to local database (backup)
           await _dbService.saveAppointments(appointments);
 
+          // جلب الضيوف والدعوات للمواعيد
+          await _loadGuestsAndInvitations(appointments);
+
           // Update UI with fresh data
           if (!mounted) return;
           setState(() => _appointments = appointments);
@@ -144,6 +151,49 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       await prefs.setString('appointments_$userId', jsonEncode(jsonList));
     } catch (e) {
       // Ignore cache errors
+    }
+  }
+
+  // جلب الضيوف والدعوات للمواعيد
+  Future<void> _loadGuestsAndInvitations(List<AppointmentModel> appointments) async {
+    try {
+      _appointmentGuests.clear();
+      _appointmentInvitations.clear();
+
+      for (final appointment in appointments) {
+        // جلب دعوات الموعد
+        final invitationRecords = await _authService.pb
+            .collection(AppConstants.invitationsCollection)
+            .getFullList(
+              filter: 'appointment = "${appointment.id}"',
+              expand: 'guest',
+            );
+
+        final invitations = <InvitationModel>[];
+        final guests = <UserModel>[];
+
+        for (final record in invitationRecords) {
+          final invitation = InvitationModel.fromJson(record.toJson());
+          invitations.add(invitation);
+
+          // جلب بيانات الضيف من expand
+          try {
+            final guestData = record.get<List<dynamic>>('expand.guest');
+            if (guestData.isNotEmpty) {
+              final guest = UserModel.fromJson(guestData.first.toJson());
+              guests.add(guest);
+            }
+          } catch (e) {
+            // تجاهل الأخطاء في جلب بيانات الضيف
+            continue;
+          }
+        }
+
+        _appointmentInvitations[appointment.id] = invitations;
+        _appointmentGuests[appointment.id] = guests;
+      }
+    } catch (e) {
+      print('خطأ في جلب الضيوف والدعوات: $e');
     }
   }
 
@@ -1006,121 +1056,88 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildAppointmentCard(AppointmentModel appointment) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    appointment.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: appointment.privacy == 'public'
-                        ? Colors.green.shade50
-                        : Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Text(
-                    appointment.privacy == 'public' ? 'عام' : 'خاص',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: appointment.privacy == 'public'
-                          ? Colors.green.shade700
-                          : Colors.orange.shade700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (appointment.region != null) ...[
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    appointment.region!,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-                  ),
-                  if (appointment.building != null) ...[
-                    Text(
-                      ' - ${appointment.building}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 16,
-                  color: Colors.grey.shade600,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  () {
-                    final localDate = TimezoneService.toLocal(appointment.appointmentDate);
-                    return '${localDate.day}/${localDate.month}/${localDate.year}';
-                  }(),
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
-                Text(
-                  TimezoneService.formatTime12Hour(
-                    TimezoneService.toLocal(appointment.appointmentDate)
-                  ),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _hasTimeConflict(appointment) ? Colors.red : Colors.grey.shade700,
-                    fontWeight: _hasTimeConflict(appointment) ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    final guests = _appointmentGuests[appointment.id] ?? [];
+    final invitations = _appointmentInvitations[appointment.id] ?? [];
+
+    return AppointmentCard(
+      appointment: appointment,
+      guests: guests,
+      invitations: invitations,
+      onTap: () {
+        // يمكن إضافة التنقل لصفحة تفاصيل الموعد هنا
+      },
+      onPrivacyChanged: (newPrivacy) async {
+        // تحديث الموعد في القائمة المحلية
+        final updatedAppointments = _appointments.map((apt) {
+          if (apt.id == appointment.id) {
+            return AppointmentModel(
+              id: apt.id,
+              title: apt.title,
+              region: apt.region,
+              building: apt.building,
+              privacy: newPrivacy,
+              status: apt.status,
+              appointmentDate: apt.appointmentDate,
+              hostId: apt.hostId,
+              streamLink: apt.streamLink,
+              noteShared: apt.noteShared,
+              created: apt.created,
+              updated: apt.updated,
+            );
+          }
+          return apt;
+        }).toList();
+
+        setState(() {
+          _appointments = updatedAppointments;
+        });
+
+        // حفظ التحديث في الكاش
+        await _saveAppointmentsToCache(_appointments);
+      },
+      onGuestsChanged: (selectedGuestIds) async {
+        // تحديث دعوات الضيوف
+        await _updateAppointmentGuests(appointment.id, selectedGuestIds);
+      },
     );
+  }
+
+  // تحديث ضيوف الموعد
+  Future<void> _updateAppointmentGuests(String appointmentId, List<String> selectedGuestIds) async {
+    try {
+      // الحصول على الدعوات الحالية
+      final currentInvitations = _appointmentInvitations[appointmentId] ?? [];
+      final currentGuestIds = currentInvitations.map((inv) => inv.guestId).toSet();
+      final newGuestIds = selectedGuestIds.toSet();
+
+      // إضافة دعوات جديدة
+      for (final guestId in newGuestIds.difference(currentGuestIds)) {
+        await _authService.pb
+            .collection(AppConstants.invitationsCollection)
+            .create(body: {
+          'appointment': appointmentId,
+          'guest': guestId,
+          'status': 'invited',
+        });
+      }
+
+      // حذف الدعوات المحذوفة
+      for (final guestId in currentGuestIds.difference(newGuestIds)) {
+        final invitation = currentInvitations.firstWhere((inv) => inv.guestId == guestId);
+        await _authService.pb
+            .collection(AppConstants.invitationsCollection)
+            .delete(invitation.id);
+      }
+
+      // إعادة تحميل الضيوف والدعوات
+      await _loadGuestsAndInvitations(_appointments);
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('خطأ في تحديث ضيوف الموعد: $e');
+    }
   }
 
   // مزامنة المواعيد المحفوظة أوفلاين

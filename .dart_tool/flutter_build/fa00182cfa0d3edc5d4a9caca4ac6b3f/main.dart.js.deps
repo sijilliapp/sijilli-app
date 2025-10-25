@@ -1538,6 +1538,7 @@ file:///D:/sijilli/.dart_tool/flutter_build/fa00182cfa0d3edc5d4a9caca4ac6b3f/web
 file:///D:/sijilli/lib/config/constants.dart
 file:///D:/sijilli/lib/main.dart
 file:///D:/sijilli/lib/models/appointment_model.dart
+file:///D:/sijilli/lib/models/invitation_model.dart
 file:///D:/sijilli/lib/models/post_model.dart
 file:///D:/sijilli/lib/models/user_model.dart
 file:///D:/sijilli/lib/screens/draft_forms_screen.dart
@@ -1559,6 +1560,7 @@ file:///D:/sijilli/lib/services/sunset_service.dart
 file:///D:/sijilli/lib/services/timezone_service.dart
 file:///D:/sijilli/lib/utils/arabic_search_utils.dart
 file:///D:/sijilli/lib/utils/date_converter.dart
+file:///D:/sijilli/lib/widgets/appointment_card.dart
 org-dartlang-sdk:///dart-sdk/lib/_http/crypto.dart
 org-dartlang-sdk:///dart-sdk/lib/_http/embedder_config.dart
 org-dartlang-sdk:///dart-sdk/lib/_http/http.dart
