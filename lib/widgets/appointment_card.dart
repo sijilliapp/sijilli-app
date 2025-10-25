@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../models/invitation_model.dart';
 import '../services/auth_service.dart';
 import '../services/timezone_service.dart';
+import '../utils/arabic_search_utils.dart';
 import '../config/constants.dart';
 
 class AppointmentCard extends StatefulWidget {
@@ -277,7 +278,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
     final firstGuest = widget.guests.isNotEmpty ? widget.guests.first : null;
     
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -299,10 +300,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   // صورة أول ضيف مع الطوق
                   if (firstGuest != null) ...[
                     _buildGuestAvatar(firstGuest),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     // اسم الضيف في كبسولة
                     _buildGuestNameCapsule(firstGuest),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                   ],
                   // زر إضافة الضيوف
                   _buildAddGuestButton(),
@@ -435,8 +436,12 @@ class _GuestSelectionDialogState extends State<_GuestSelectionDialog> {
       _filteredFriends = List.from(_allFriends);
     } else {
       _filteredFriends = _allFriends.where((friend) {
-        return friend.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               friend.username.toLowerCase().contains(_searchQuery.toLowerCase());
+        return ArabicSearchUtils.searchInUserFields(
+          friend.name,
+          friend.username,
+          friend.bio ?? '',
+          _searchQuery,
+        );
       }).toList();
     }
   }
@@ -446,26 +451,47 @@ class _GuestSelectionDialogState extends State<_GuestSelectionDialog> {
       final currentUserId = _authService.currentUser?.id;
       if (currentUserId == null) return;
 
-      // جلب قائمة المتابعين
-      final followRecords = await _authService.pb
+      // جلب المتابعات (من أتابعهم) - نفس منطق الصفحة الرئيسية
+      final followingRecords = await _authService.pb
           .collection(AppConstants.followsCollection)
           .getFullList(
-            filter: 'follower = "$currentUserId" && status = "approved"',
-            expand: 'following',
+            filter: 'follower = "$currentUserId"',
           );
 
+      // جلب المتبوعين (من يتابعونني)
+      final followersRecords = await _authService.pb
+          .collection(AppConstants.followsCollection)
+          .getFullList(
+            filter: 'following = "$currentUserId"',
+          );
+
+      // جمع معرفات المستخدمين
+      Set<String> friendIds = {};
+
+      // إضافة المتابعات
+      for (var record in followingRecords) {
+        friendIds.add(record.data['following']);
+      }
+
+      // إضافة المتبوعين
+      for (var record in followersRecords) {
+        friendIds.add(record.data['follower']);
+      }
+
+      // جلب بيانات المستخدمين
       final friends = <UserModel>[];
-      for (final record in followRecords) {
-        try {
-          final followingData = record.get<List<dynamic>>('expand.following');
-          if (followingData.isNotEmpty) {
-            final friend = UserModel.fromJson(followingData.first.toJson());
-            friends.add(friend);
-          }
-        } catch (e) {
-          // تجاهل الأخطاء في جلب بيانات المتابع
-          continue;
-        }
+      if (friendIds.isNotEmpty) {
+        final friendsFilter = friendIds.map((id) => 'id = "$id"').join(' || ');
+        final usersRecords = await _authService.pb
+            .collection(AppConstants.usersCollection)
+            .getFullList(
+              filter: '($friendsFilter) && isPublic = true',
+              sort: 'name',
+            );
+
+        friends.addAll(usersRecords
+            .map((record) => UserModel.fromJson(record.toJson()))
+            .toList());
       }
 
       setState(() {

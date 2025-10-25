@@ -837,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) => _buildAppointmentCard(_appointments[index]),
