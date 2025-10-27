@@ -14,6 +14,7 @@ import '../models/user_model.dart';
 import '../models/appointment_model.dart';
 import '../config/constants.dart';
 import 'home_screen.dart';
+import 'notifications_screen.dart';
 import 'editable_settings_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -147,68 +148,6 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 // Placeholder Screens
-class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // AppBar
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Text(
-                'الإشعارات',
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_outlined,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'لا توجد إشعارات',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class AddAppointmentScreen extends StatefulWidget {
   const AddAppointmentScreen({super.key});
 
@@ -1130,7 +1069,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
             .create(body: {
           'appointment': appointmentId,
           'guest': guestId,
-          'status': 'pending',
+          'status': 'invited',
           'invited_by': _authService.currentUser!.id,
         });
       }

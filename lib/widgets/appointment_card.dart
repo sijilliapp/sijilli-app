@@ -32,6 +32,9 @@ class AppointmentCard extends StatefulWidget {
 class _AppointmentCardState extends State<AppointmentCard> {
   final AuthService _authService = AuthService();
 
+  // ثابت ارتفاع عناصر الهيدر
+  static const double headerElementHeight = 26;
+
   // الحصول على حالة الضيف من الدعوة
   String _getGuestStatus(UserModel guest) {
     final invitation = widget.invitations.firstWhere(
@@ -125,10 +128,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
     return GestureDetector(
       onTap: _togglePrivacy,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isPublic ? Colors.green.shade50 : Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isPublic ? Colors.green.shade200 : Colors.orange.shade200,
             width: 1,
@@ -137,7 +140,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
         child: Text(
           isPublic ? 'عام' : 'خاص',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w500,
             color: isPublic ? Colors.green.shade700 : Colors.orange.shade700,
           ),
@@ -146,7 +149,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
     );
   }
 
-  // بناء صورة الضيف مع الطوق الديناميكي
+  // بناء صورة الضيف مع الطوق الديناميكي - بنفس ارتفاع الكبسولات
   Widget _buildGuestAvatar(UserModel guest) {
     final status = _getGuestStatus(guest);
     final ringColor = _getRingColor(status);
@@ -156,25 +159,25 @@ class _AppointmentCardState extends State<AppointmentCard> {
     }
 
     return Container(
-      width: 42,
-      height: 42,
+      width: headerElementHeight,
+      height: headerElementHeight,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
           color: ringColor,
-          width: status == 'active' ? 3 : 2, // طوق أسمك للنشطين
+          width: status == 'active' ? 2 : 1.5, // طوق أسمك للنشطين
         ),
         // إضافة ظل للطوق النشط
         boxShadow: status == 'active' ? [
           BoxShadow(
             color: ringColor.withValues(alpha: 0.3),
-            blurRadius: 4,
-            spreadRadius: 1,
+            blurRadius: 3,
+            spreadRadius: 0.5,
           ),
         ] : null,
       ),
       child: CircleAvatar(
-        radius: 18,
+        radius: (headerElementHeight - 4) / 2, // تقليل الراديوس ليناسب الحجم الجديد
         backgroundColor: Colors.grey.shade100,
         backgroundImage: (guest.avatar?.isNotEmpty ?? false)
             ? NetworkImage(_getUserAvatarUrl(guest))
@@ -182,7 +185,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
         child: (guest.avatar?.isEmpty ?? true)
             ? Icon(
                 Icons.person,
-                size: 20,
+                size: 14, // أيقونة أصغر
                 color: Colors.grey.shade600,
               )
             : null,
@@ -223,10 +226,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: borderColor,
           width: 1,
@@ -235,7 +238,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
       child: Text(
         guest.name,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: status == 'active' ? FontWeight.w600 : FontWeight.w500,
           color: textColor,
         ),
@@ -243,13 +246,13 @@ class _AppointmentCardState extends State<AppointmentCard> {
     );
   }
 
-  // بناء زر إضافة الضيوف
+  // بناء زر إضافة الضيوف - دائرة بنفس ارتفاع الكبسولات
   Widget _buildAddGuestButton() {
     return GestureDetector(
       onTap: _showAddGuestsDialog,
       child: Container(
-        width: 32,
-        height: 32,
+        width: headerElementHeight,
+        height: headerElementHeight,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.blue.shade50,
@@ -260,7 +263,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
         ),
         child: Icon(
           Icons.add,
-          size: 18,
+          size: 14,
           color: Colors.blue.shade600,
         ),
       ),
@@ -287,26 +290,26 @@ class _AppointmentCardState extends State<AppointmentCard> {
         onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // الهيدر مع الكبسولات
               Row(
                 children: [
-                  // كبسولة الخصوصية
-                  _buildPrivacyCapsule(),
-                  const Spacer(),
+                  // زر إضافة الضيوف (أقصى اليسار)
+                  _buildAddGuestButton(),
+                  const SizedBox(width: 6),
                   // صورة أول ضيف مع الطوق
                   if (firstGuest != null) ...[
                     _buildGuestAvatar(firstGuest),
                     const SizedBox(width: 6),
                     // اسم الضيف في كبسولة
                     _buildGuestNameCapsule(firstGuest),
-                    const SizedBox(width: 6),
                   ],
-                  // زر إضافة الضيوف
-                  _buildAddGuestButton(),
+                  const Spacer(),
+                  // كبسولة الخصوصية (أقصى اليمين)
+                  _buildPrivacyCapsule(),
                 ],
               ),
               const SizedBox(height: 16),

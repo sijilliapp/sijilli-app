@@ -1166,8 +1166,8 @@
   },
   {
     "id": "pbc_3554030554",
-    "listRule": "@request.auth.id != '' && guest = @request.auth.id",
-    "viewRule": "@request.auth.id != '' && guest = @request.auth.id",
+    "listRule": "@request.auth.id != '' && (guest = @request.auth.id || appointment.host = @request.auth.id)",
+    "viewRule": "@request.auth.id != '' && (guest = @request.auth.id || appointment.host = @request.auth.id)",
     "createRule": "appointment.host = @request.auth.id",
     "updateRule": "guest = @request.auth.id",
     "deleteRule": null,

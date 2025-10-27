@@ -173,8 +173,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         final guests = <UserModel>[];
 
         for (final record in invitationRecords) {
-          final invitation = InvitationModel.fromJson(record.toJson());
-          invitations.add(invitation);
+          try {
+            final invitation = InvitationModel.fromJson(record.toJson());
+            invitations.add(invitation);
+          } catch (e) {
+            print('خطأ في تحليل دعوة: ${record.id} - $e');
+            continue; // تجاهل هذه الدعوة والمتابعة
+          }
 
           // جلب بيانات الضيف من expand
           try {
@@ -1191,7 +1196,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     .create(body: {
                   'appointment': record.id,
                   'guest': guestId,
-                  'status': 'pending',
+                  'status': 'invited',
                 });
               }
 

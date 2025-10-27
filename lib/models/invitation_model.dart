@@ -26,12 +26,25 @@ class InvitationModel {
       guestId: json['guest'] ?? '',
       status: json['status'] ?? 'invited',
       privacy: json['privacy'],
-      respondedAt: json['respondedAt'] != null 
-          ? DateTime.parse(json['respondedAt'])
+      respondedAt: json['respondedAt'] != null
+          ? _parseDateTime(json['respondedAt'])
           : null,
-      created: DateTime.parse(json['created']),
-      updated: DateTime.parse(json['updated']),
+      created: _parseDateTime(json['created']) ?? DateTime.now(),
+      updated: _parseDateTime(json['updated']) ?? DateTime.now(),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return null;
+    try {
+      if (dateValue is String) {
+        return DateTime.parse(dateValue);
+      }
+      return null;
+    } catch (e) {
+      print('خطأ في تحليل التاريخ: $dateValue - $e');
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
