@@ -55,7 +55,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   Future<void> _loadNotifications() async {
-    print('🚀 تحميل الإشعارات المحسنة من قاعدة البيانات');
+    print('🚀 تحميل الإشعارات السريع من قاعدة البيانات');
 
     try {
       final currentUserId = _authService.currentUser?.id;
@@ -95,7 +95,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             continue;
           }
 
-          // جلب البيانات المرتبطة مع التخزين المؤقت
+          // جلب البيانات المرتبطة مع التخزين المؤقت الذكي
           final appointmentId = record.data['appointment'] as String?;
           if (appointmentId == null) {
             print('❌ معرف الموعد مفقود في الدعوة ${record.id}');
