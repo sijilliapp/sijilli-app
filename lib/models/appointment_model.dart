@@ -37,13 +37,26 @@ class AppointmentModel {
       status: json['status'] ?? 'active',
       // ملاحظة: appointmentDate يأتي من قاعدة البيانات بتوقيت UTC
       // يجب تحويله إلى التوقيت المحلي عند العرض باستخدام TimezoneService.toLocal()
-      appointmentDate: DateTime.parse(json['appointment_date']),
+      appointmentDate: _parseDateTime(json['appointment_date']) ?? DateTime.now(),
       hostId: json['host'] ?? '',
       streamLink: json['stream_link'],
       noteShared: json['note_shared'],
-      created: DateTime.parse(json['created']),
-      updated: DateTime.parse(json['updated']),
+      created: _parseDateTime(json['created']) ?? DateTime.now(),
+      updated: _parseDateTime(json['updated']) ?? DateTime.now(),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return null;
+    try {
+      if (dateValue is String && dateValue.isNotEmpty) {
+        return DateTime.parse(dateValue);
+      }
+      return null;
+    } catch (e) {
+      print('خطأ في تحليل التاريخ: $dateValue - $e');
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -88,12 +101,12 @@ class AppointmentModel {
       building: map['building'],
       privacy: map['privacy'] ?? 'public',
       status: map['status'] ?? 'active',
-      appointmentDate: DateTime.parse(map['appointment_date']),
+      appointmentDate: _parseDateTime(map['appointment_date']) ?? DateTime.now(),
       hostId: map['host_id'] ?? '',
       streamLink: map['stream_link'],
       noteShared: map['note_shared'],
-      created: DateTime.parse(map['created']),
-      updated: DateTime.parse(map['updated']),
+      created: _parseDateTime(map['created']) ?? DateTime.now(),
+      updated: _parseDateTime(map['updated']) ?? DateTime.now(),
     );
   }
 }

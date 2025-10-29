@@ -52,9 +52,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _initializeData() async {
-    // تحميل بيانات المستخدم أولاً
-    await _authService.initAuth();
-    // ثم تحميل المواعيد
+    // تحميل المواعيد فوراً (Local-First) - المصادقة تمت بالفعل في SplashScreen
     await _loadAppointments();
   }
 
@@ -85,16 +83,59 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       // 3. If online, update from PocketHost in background
       if (isOnline && _authService.isAuthenticated) {
         try {
-          final records = await _authService.pb
+          final currentUserId = _authService.currentUser?.id;
+          if (currentUserId == null) return;
+
+          // جلب المواعيد التي أنا مضيفها
+          final myHostedAppointments = await _authService.pb
               .collection(AppConstants.appointmentsCollection)
               .getFullList(
-                filter: 'host = "${_authService.currentUser?.id}"',
+                filter: 'host = "$currentUserId" && status = "active"',
                 sort: '-appointment_date',
               );
 
-          final appointments = records.map((record) {
-            return AppointmentModel.fromJson(record.toJson());
-          }).toList();
+          // جلب الدعوات المقبولة
+          final acceptedInvitations = await _authService.pb
+              .collection(AppConstants.invitationsCollection)
+              .getFullList(
+                filter: 'guest = "$currentUserId" && status = "accepted"',
+                expand: 'appointment',
+              );
+
+          // جمع المواعيد من الدعوات المقبولة
+          List<AppointmentModel> invitedAppointments = [];
+          for (final invitation in acceptedInvitations) {
+            try {
+              // جلب الموعد مباشرة من قاعدة البيانات
+              final appointmentId = invitation.data['appointment'] as String;
+              final appointmentRecord = await _authService.pb
+                  .collection(AppConstants.appointmentsCollection)
+                  .getOne(appointmentId);
+
+              final appointment = AppointmentModel.fromJson(appointmentRecord.toJson());
+              // التأكد من أن الموعد نشط
+              if (appointment.status == 'active') {
+                invitedAppointments.add(appointment);
+              }
+            } catch (e) {
+              print('خطأ في معالجة موعد مدعو: $e');
+              continue;
+            }
+          }
+
+          // دمج المواعيد (المضيفة + المدعو إليها)
+          final allAppointments = <AppointmentModel>[];
+          allAppointments.addAll(myHostedAppointments.map((record) => AppointmentModel.fromJson(record.toJson())));
+          allAppointments.addAll(invitedAppointments);
+
+          // ترتيب حسب التاريخ وإزالة المكررات
+          final uniqueAppointments = <String, AppointmentModel>{};
+          for (final appointment in allAppointments) {
+            uniqueAppointments[appointment.id] = appointment;
+          }
+
+          final appointments = uniqueAppointments.values.toList();
+          appointments.sort((a, b) => b.appointmentDate.compareTo(a.appointmentDate));
 
           // Save to Cache for next time ⚡
           await _saveAppointmentsToCache(appointments);

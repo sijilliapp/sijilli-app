@@ -8,16 +8,16 @@ void main() async {
   // تهيئة شريط الحالة قبل تشغيل التطبيق
   WidgetsFlutterBinding.ensureInitialized();
 
-  // تهيئة الخدمات
+  // تهيئة الخدمات الأساسية
   await TimezoneService.initialize();
   await SunsetService.initialize();
 
   // إعداد شريط الحالة ليكون مرئياً
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent, // شريط حالة شفاف
-      statusBarIconBrightness: Brightness.dark, // أيقونات ونصوص داكنة
-      statusBarBrightness: Brightness.light, // خلفية فاتحة (iOS)
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
     ),
   );
 

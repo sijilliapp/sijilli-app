@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sijilli/services/auth_service.dart';
 import 'package:sijilli/utils/arabic_search_utils.dart';
+import 'package:sijilli/models/appointment_model.dart';
+import 'package:sijilli/models/user_model.dart';
+import 'package:sijilli/models/invitation_model.dart';
+import 'package:sijilli/config/constants.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -21,6 +25,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   bool _isLoading = false;
   String _searchQuery = '';
+
+  // تتبع الدعوات المحدثة محلياً
+  final Map<String, String> _localInvitationUpdates = {};
 
   @override
   void initState() {
@@ -150,14 +157,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           // إنشاء الإشعار حسب المستخدم الحالي ونوع الدعوة
           NotificationModel? notification;
 
-          if (guestId == currentUserId && status == 'invited') {
-            // المستخدم الحالي هو الضيف ولديه دعوة جديدة
+          if (guestId == currentUserId) {
+            // المستخدم الحالي هو الضيف - إظهار الدعوة بجميع حالاتها
             final hostName = _extractStringFromData(hostData.data['name'], 'مستخدم');
             final appointmentTitle = appointmentData.data['title'] ?? 'موعد';
 
             notification = NotificationModel(
               id: 'inv_${record.id}',
-              title: 'دعوة موعد جديد',
+              title: 'دعوة موعد',
               message: 'دعاك $hostName لموعد $appointmentTitle',
               type: NotificationType.invitation,
               isRead: false,
@@ -167,7 +174,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               senderAvatar: _extractStringFromData(hostData.data['avatar'], ''),
             );
 
-            print('✅ إشعار دعوة جديدة: $hostName -> $appointmentTitle');
+            print('✅ إشعار دعوة للضيف: $hostName -> $appointmentTitle (حالة: $status)');
 
           } else if (hostId == currentUserId && status != 'invited') {
             // المستخدم الحالي هو المضيف وتم الرد على دعوته
@@ -465,6 +472,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   Widget _buildNotificationCard(NotificationModel notification) {
+    // كارد دعوة تفاعلي مباشر
+    if (notification.type == NotificationType.invitation) {
+      return _buildInvitationCard(notification);
+    }
+
+    // كارد إشعار عادي
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -597,6 +610,487 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
+  // كارد دعوة تفاعلي مباشر
+  Widget _buildInvitationCard(NotificationModel notification) {
+    final invitationId = notification.id.replaceFirst('inv_', '');
+    final localStatus = _localInvitationUpdates[invitationId];
+
+    return FutureBuilder<Map<String, dynamic>?>(
+      key: ValueKey('invitation_${notification.id}_${localStatus ?? 'original'}'),
+      future: _loadInvitationData(notification),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade300),
+            ),
+            child: const Text(
+              'خطأ في تحميل بيانات الدعوة',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        final data = snapshot.data!;
+        final invitation = data['invitation'] as InvitationModel;
+        final appointment = data['appointment'] as AppointmentModel;
+        final host = data['host'] as UserModel;
+
+        return _buildInteractiveInvitationCard(invitation, appointment, host);
+      },
+    );
+  }
+
+  // تحميل بيانات الدعوة
+  Future<Map<String, dynamic>?> _loadInvitationData(NotificationModel notification) async {
+    try {
+      final invitationId = notification.id.replaceFirst('inv_', '');
+
+      final invitationRecord = await _authService.pb
+          .collection(AppConstants.invitationsCollection)
+          .getOne(invitationId);
+
+      var invitation = InvitationModel.fromJson(invitationRecord.toJson());
+
+      // تطبيق التحديثات المحلية إذا وجدت
+      if (_localInvitationUpdates.containsKey(invitationId)) {
+        final localStatus = _localInvitationUpdates[invitationId]!;
+        invitation = invitation.copyWith(
+          status: localStatus,
+          respondedAt: DateTime.now(),
+        );
+      }
+
+      final appointmentRecord = await _authService.pb
+          .collection(AppConstants.appointmentsCollection)
+          .getOne(invitation.appointmentId);
+
+      final appointment = AppointmentModel.fromJson(appointmentRecord.toJson());
+
+      final hostRecord = await _authService.pb
+          .collection(AppConstants.usersCollection)
+          .getOne(appointment.hostId);
+
+      final host = UserModel.fromJson(hostRecord.toJson());
+
+      return {
+        'invitation': invitation,
+        'appointment': appointment,
+        'host': host,
+      };
+    } catch (e) {
+      print('خطأ في تحميل بيانات الدعوة: $e');
+      return null;
+    }
+  }
+
+  // كارد الدعوة التفاعلي الجديد
+  Widget _buildInteractiveInvitationCard(InvitationModel invitation, AppointmentModel appointment, UserModel host) {
+    final isResponded = invitation.status != 'invited';
+    final isAccepted = invitation.status == 'accepted';
+    final isRejected = invitation.status == 'rejected';
+
+    Color borderColor;
+    if (isAccepted) {
+      borderColor = Colors.green;
+    } else if (isRejected) {
+      borderColor = Colors.red;
+    } else {
+      borderColor = Colors.orange;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // زر الحذف في الزاوية العلوية
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              onPressed: () => _deleteInvitation(invitation),
+              icon: const Icon(Icons.close, size: 20),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.grey.shade100,
+                padding: const EdgeInsets.all(4),
+                minimumSize: const Size(28, 28),
+              ),
+            ),
+          ),
+
+          // محتوى الكارد
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // معلومات المضيف
+                Row(
+                  children: [
+                    // صورة المضيف
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundImage: (host.avatar?.isNotEmpty ?? false)
+                          ? NetworkImage('${AppConstants.pocketbaseUrl}/api/files/_pb_users_auth_/${host.id}/${host.avatar}')
+                          : null,
+                      backgroundColor: Colors.blue.shade100,
+                      child: (host.avatar?.isEmpty ?? true)
+                          ? Text(
+                              host.name.isNotEmpty ? host.name[0] : '؟',
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+
+                    // اسم المضيف
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            host.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'دعاك إلى موعد',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // تفاصيل الموعد
+                _buildAppointmentDetails(appointment),
+
+                const SizedBox(height: 16),
+
+                // أزرار الاستجابة أو حالة الاستجابة
+                if (!isResponded) ...[
+                  // أزرار القبول والرفض
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                          icon: const Icon(Icons.check, color: Colors.white),
+                          label: const Text('موافق', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _respondToInvitation(invitation, 'rejected'),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          label: const Text('رفض', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // حالة الاستجابة
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isAccepted ? Colors.green.shade50 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isAccepted ? Colors.green.shade200 : Colors.red.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isAccepted ? Icons.check_circle : Icons.cancel,
+                          color: isAccepted ? Colors.green : Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAccepted ? 'تمت الموافقة' : 'تم الرفض',
+                          style: TextStyle(
+                            color: isAccepted ? Colors.green.shade700 : Colors.red.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // بناء تفاصيل الموعد
+  Widget _buildAppointmentDetails(AppointmentModel appointment) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // عنوان الموعد
+          Text(
+            appointment.title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // التاريخ والوقت
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                _formatAppointmentDate(appointment.appointmentDate),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                _formatAppointmentTime(appointment.appointmentDate),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+
+          // المكان إذا كان متوفراً
+          if (appointment.region?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${appointment.region}${appointment.building?.isNotEmpty ?? false ? ' - ${appointment.building}' : ''}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // الخصوصية
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: appointment.privacy == 'public' ? Colors.green.shade100 : Colors.orange.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              appointment.privacy == 'public' ? 'عام' : 'خاص',
+              style: TextStyle(
+                fontSize: 12,
+                color: appointment.privacy == 'public' ? Colors.green.shade700 : Colors.orange.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // الرد على الدعوة
+  Future<void> _respondToInvitation(InvitationModel invitation, String response) async {
+    try {
+      // تحديث قاعدة البيانات
+      await _authService.pb
+          .collection(AppConstants.invitationsCollection)
+          .update(invitation.id, body: {
+        'status': response,
+        'respondedAt': DateTime.now().toIso8601String(),
+      });
+
+      // تحديث الحالة محلياً بدلاً من إعادة التحميل الكامل
+      if (mounted) {
+        setState(() {
+          // حفظ التحديث محلياً
+          _localInvitationUpdates[invitation.id] = response;
+        });
+
+        // إظهار رسالة نجاح
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response == 'accepted'
+                  ? '✅ تم قبول الدعوة بنجاح'
+                  : '❌ تم رفض الدعوة',
+            ),
+            backgroundColor: response == 'accepted' ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ خطأ في الرد على الدعوة: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حدث خطأ أثناء الرد على الدعوة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // حذف الدعوة
+  Future<void> _deleteInvitation(InvitationModel invitation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الدعوة'),
+        content: const Text('هل تريد حذف هذه الدعوة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // حذف الإشعار محلياً
+        setState(() {
+          _notifications.removeWhere((n) => n.id == 'inv_${invitation.id}');
+          _filteredNotifications.removeWhere((n) => n.id == 'inv_${invitation.id}');
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حذف الدعوة'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        print('خطأ في حذف الدعوة: $e');
+      }
+    }
+  }
+
+  // تنسيق تاريخ الموعد
+  String _formatAppointmentDate(DateTime date) {
+    final months = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  // تنسيق وقت الموعد
+  String _formatAppointmentTime(DateTime date) {
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'م' : 'ص';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+
+    return '$displayHour:$minute $period';
+  }
+
   Color _getNotificationColor(NotificationType type) {
     switch (type) {
       case NotificationType.invitation:
@@ -650,8 +1144,11 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         notification.isRead = true;
       });
     }
-    // TODO: التنقل حسب نوع الإشعار
+
+    // لا نحتاج للتنقل - الكارد سيكون تفاعلي مباشرة
   }
+
+
 
   void _onVisitorTap(VisitorModel visitor) {
     // TODO: التنقل لملف المستخدم

@@ -46,10 +46,23 @@ class UserModel {
       joiningDate: json['joining_date']?.toString(),
       hijriAdjustment: json['hijri_adjustment'] as int?,
       createdDate: json['created'] != null
-          ? DateTime.parse(json['created'].toString())
+          ? _parseDateTime(json['created'])
           : null,
       isPublic: json['isPublic'] as bool?,
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return null;
+    try {
+      if (dateValue is String && dateValue.isNotEmpty) {
+        return DateTime.parse(dateValue);
+      }
+      return null;
+    } catch (e) {
+      print('خطأ في تحليل التاريخ: $dateValue - $e');
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
