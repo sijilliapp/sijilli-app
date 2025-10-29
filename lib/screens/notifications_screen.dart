@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:sijilli/services/auth_service.dart';
 import 'package:sijilli/utils/arabic_search_utils.dart';
 import 'package:sijilli/models/appointment_model.dart';
@@ -29,6 +30,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   // تتبع الدعوات المحدثة محلياً
   final Map<String, String> _localInvitationUpdates = {};
 
+  // تخزين مؤقت للبيانات المحملة
+  final Map<String, Map<String, dynamic>> _invitationDataCache = {};
+
+  // Timer للبحث المتأخر
+  Timer? _searchTimer;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchTimer?.cancel();
     super.dispose();
   }
 
@@ -74,14 +82,17 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       print('🔍 جلب الدعوات للمستخدم: $currentUserId');
 
       // جلب الدعوات مع البيانات المرتبطة في استعلام واحد محسن
-      final invitationRecords = await _authService.pb
+      final invitationResult = await _authService.pb
           .collection('invitations')
-          .getFullList(
+          .getList(
+            page: 1,
+            perPage: 50, // تحديد عدد الإشعارات لتحسين الأداء
             sort: '-created',
             expand: 'appointment,appointment.host,guest',
             filter: 'guest = "$currentUserId" || appointment.host = "$currentUserId"',
           );
 
+      final invitationRecords = invitationResult.items;
       print('📊 تم جلب ${invitationRecords.length} دعوة مرتبطة بالمستخدم');
 
       List<NotificationModel> notifications = [];
@@ -283,10 +294,17 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     }
   }
 
+  void _onSearchChanged(String query) {
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 300), () {
+      _filterData(query);
+    });
+  }
+
   void _filterData(String query) {
     setState(() {
       _searchQuery = query;
-      
+
       if (query.isEmpty) {
         _filteredNotifications = List.from(_notifications);
         _filteredVisitors = List.from(_visitors);
@@ -342,7 +360,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             color: Colors.white,
             padding: const EdgeInsets.all(16),
             child: TextField(
-              onChanged: _filterData,
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'البحث في الإشعارات والزوار...',
                 prefixIcon: const Icon(Icons.search),
@@ -379,8 +397,23 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   Widget _buildNotificationsList() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (_isLoading && _filteredNotifications.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'جاري تحميل الإشعارات...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     if (_filteredNotifications.isEmpty) {
@@ -397,8 +430,30 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       onRefresh: _loadData,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _filteredNotifications.length,
+        itemCount: _filteredNotifications.length + (_isLoading ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index == _filteredNotifications.length && _isLoading) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'جاري التحميل...',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           final notification = _filteredNotifications[index];
           return _buildNotificationCard(notification);
         },
@@ -667,10 +722,19 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  // تحميل بيانات الدعوة
+  // تحميل بيانات الدعوة مع التخزين المؤقت
   Future<Map<String, dynamic>?> _loadInvitationData(NotificationModel notification) async {
     try {
       final invitationId = notification.id.replaceFirst('inv_', '');
+
+      // التحقق من التخزين المؤقت أولاً
+      final cacheKey = '${invitationId}_${_localInvitationUpdates[invitationId] ?? 'original'}';
+      if (_invitationDataCache.containsKey(cacheKey)) {
+        print('📦 استخدام البيانات المخزنة مؤقتاً للدعوة: $invitationId');
+        return _invitationDataCache[cacheKey];
+      }
+
+      print('🔄 تحميل بيانات الدعوة من الخادم: $invitationId');
 
       final invitationRecord = await _authService.pb
           .collection(AppConstants.invitationsCollection)
@@ -687,25 +751,33 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         );
       }
 
+      // تحميل الموعد أولاً
       final appointmentRecord = await _authService.pb
           .collection(AppConstants.appointmentsCollection)
           .getOne(invitation.appointmentId);
 
       final appointment = AppointmentModel.fromJson(appointmentRecord.toJson());
 
+      // تحميل المضيف
       final hostRecord = await _authService.pb
           .collection(AppConstants.usersCollection)
           .getOne(appointment.hostId);
 
       final host = UserModel.fromJson(hostRecord.toJson());
 
-      return {
+      final result = {
         'invitation': invitation,
         'appointment': appointment,
         'host': host,
       };
+
+      // حفظ في التخزين المؤقت
+      _invitationDataCache[cacheKey] = result;
+      print('💾 تم حفظ بيانات الدعوة في التخزين المؤقت: $invitationId');
+
+      return result;
     } catch (e) {
-      print('خطأ في تحميل بيانات الدعوة: $e');
+      print('❌ خطأ في تحميل بيانات الدعوة: $e');
       return null;
     }
   }
