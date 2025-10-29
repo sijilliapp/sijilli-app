@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:sijilli/services/auth_service.dart';
 import 'package:sijilli/utils/arabic_search_utils.dart';
-import 'package:sijilli/models/appointment_model.dart';
-import 'package:sijilli/models/user_model.dart';
-import 'package:sijilli/models/invitation_model.dart';
+
 import 'package:sijilli/config/constants.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -30,8 +30,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   // تتبع الدعوات المحدثة محلياً
   final Map<String, String> _localInvitationUpdates = {};
 
-  // تخزين مؤقت للبيانات المحملة
-  final Map<String, Map<String, dynamic>> _invitationDataCache = {};
+
 
   // Timer للبحث المتأخر
   Timer? _searchTimer;
@@ -79,6 +78,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         return;
       }
 
+      // محاولة تحميل البيانات من التخزين المحلي أولاً
+      await _loadNotificationsFromCache(currentUserId);
+
       print('🔍 جلب الدعوات للمستخدم: $currentUserId');
 
       // جلب الدعوات مع البيانات المرتبطة في استعلام واحد محسن
@@ -97,10 +99,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
       List<NotificationModel> notifications = [];
 
-      // تخزين مؤقت للبيانات لتجنب الاستعلامات المتكررة
-      Map<String, dynamic> appointmentCache = {};
-      Map<String, dynamic> userCache = {};
-
       for (final record in invitationRecords) {
         try {
           print('🔍 معالجة دعوة: ${record.id}');
@@ -113,66 +111,57 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             continue;
           }
 
-          // جلب البيانات المرتبطة مع التخزين المؤقت الذكي
-          final appointmentId = record.data['appointment'] as String?;
-          if (appointmentId == null) {
-            print('❌ معرف الموعد مفقود في الدعوة ${record.id}');
-            continue;
-          }
+          // استخدام البيانات المحملة مسبقاً من expand
+          // الحصول على بيانات الموعد من expand
+          final appointmentTitle = record.get<String?>('expand.appointment.title') ?? 'موعد';
+          final hostId = record.get<String?>('expand.appointment.host') ?? '';
 
-          // جلب بيانات الموعد مع التخزين المؤقت
-          dynamic appointmentData;
-          if (appointmentCache.containsKey(appointmentId)) {
-            appointmentData = appointmentCache[appointmentId];
-            print('📋 استخدام بيانات الموعد من التخزين المؤقت: $appointmentId');
-          } else {
-            print('🔍 جلب بيانات الموعد: $appointmentId');
-            appointmentData = await _authService.pb
-                .collection('appointments')
-                .getOne(appointmentId);
-            appointmentCache[appointmentId] = appointmentData;
-          }
+          // الحصول على بيانات المضيف من expand
+          final hostName = record.get<String?>('expand.appointment.host.name') ?? 'مستخدم';
+          final hostAvatar = record.get<String?>('expand.appointment.host.avatar') ?? '';
 
-          final hostId = appointmentData.data['host'] as String?;
-          if (hostId == null) {
-            print('❌ معرف المضيف مفقود في الموعد');
-            continue;
-          }
-
-          // جلب بيانات المضيف مع التخزين المؤقت
-          dynamic hostData;
-          if (userCache.containsKey(hostId)) {
-            hostData = userCache[hostId];
-            print('📋 استخدام بيانات المضيف من التخزين المؤقت: $hostId');
-          } else {
-            print('🔍 جلب بيانات المضيف: $hostId');
-            hostData = await _authService.pb
-                .collection('users')
-                .getOne(hostId);
-            userCache[hostId] = hostData;
-          }
-
-          // جلب بيانات الضيف مع التخزين المؤقت
-          dynamic guestData;
-          if (userCache.containsKey(guestId)) {
-            guestData = userCache[guestId];
-            print('📋 استخدام بيانات الضيف من التخزين المؤقت: $guestId');
-          } else {
-            print('🔍 جلب بيانات الضيف: $guestId');
-            guestData = await _authService.pb
-                .collection('users')
-                .getOne(guestId);
-            userCache[guestId] = guestData;
-          }
+          // الحصول على بيانات الضيف من expand
+          final guestName = record.get<String?>('expand.guest.name') ?? 'مستخدم';
+          final guestAvatar = record.get<String?>('expand.guest.avatar') ?? '';
 
           // إنشاء الإشعار حسب المستخدم الحالي ونوع الدعوة
           NotificationModel? notification;
 
+          // إنشاء بيانات الدعوة الكاملة
+          final invitationData = {
+            'invitation': {
+              'id': record.id,
+              'appointmentId': record.data['appointment'],
+              'guestId': guestId,
+              'status': status,
+              'privacy': record.data['privacy'],
+              'respondedAt': record.data['respondedAt'],
+              'created': record.data['created'],
+              'updated': record.data['updated'],
+            },
+            'appointment': {
+              'id': record.data['appointment'],
+              'title': appointmentTitle,
+              'appointmentDate': record.get<String?>('expand.appointment.appointment_date'),
+              'region': record.get<String?>('expand.appointment.region'),
+              'building': record.get<String?>('expand.appointment.building'),
+              'privacy': record.get<String?>('expand.appointment.privacy'),
+              'hostId': hostId,
+            },
+            'host': {
+              'id': hostId,
+              'name': hostName,
+              'avatar': hostAvatar,
+            },
+            'guest': {
+              'id': guestId,
+              'name': guestName,
+              'avatar': guestAvatar,
+            },
+          };
+
           if (guestId == currentUserId) {
             // المستخدم الحالي هو الضيف - إظهار الدعوة بجميع حالاتها
-            final hostName = _extractStringFromData(hostData.data['name'], 'مستخدم');
-            final appointmentTitle = appointmentData.data['title'] ?? 'موعد';
-
             notification = NotificationModel(
               id: 'inv_${record.id}',
               title: 'دعوة موعد',
@@ -182,16 +171,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               createdAt: DateTime.parse(record.data['created']),
               senderId: hostId,
               senderName: hostName,
-              senderAvatar: _extractStringFromData(hostData.data['avatar'], ''),
+              senderAvatar: hostAvatar,
+              invitationData: invitationData,
             );
 
             print('✅ إشعار دعوة للضيف: $hostName -> $appointmentTitle (حالة: $status)');
 
           } else if (hostId == currentUserId && status != 'invited') {
             // المستخدم الحالي هو المضيف وتم الرد على دعوته
-            final guestName = _extractStringFromData(guestData.data['name'], 'مستخدم');
-            final appointmentTitle = appointmentData.data['title'] ?? 'موعد';
-
             if (status == 'accepted') {
               notification = NotificationModel(
                 id: 'inv_${record.id}',
@@ -202,7 +189,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 createdAt: DateTime.parse(record.data['updated'] ?? record.data['created']),
                 senderId: guestId,
                 senderName: guestName,
-                senderAvatar: _extractStringFromData(guestData.data['avatar'], ''),
+                senderAvatar: guestAvatar,
+                invitationData: invitationData,
               );
 
               print('✅ إشعار قبول: $guestName -> $appointmentTitle');
@@ -217,7 +205,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 createdAt: DateTime.parse(record.data['updated'] ?? record.data['created']),
                 senderId: guestId,
                 senderName: guestName,
-                senderAvatar: _extractStringFromData(guestData.data['avatar'], ''),
+                senderAvatar: guestAvatar,
+                invitationData: invitationData,
               );
 
               print('✅ إشعار رفض: $guestName -> $appointmentTitle');
@@ -243,6 +232,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         });
       }
 
+      // حفظ البيانات في التخزين المحلي
+      await _saveNotificationsToCache(currentUserId, notifications);
+
     } catch (e) {
       print('❌ خطأ في تحميل الإشعارات: $e');
       if (mounted) {
@@ -254,12 +246,49 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     }
   }
 
-  String _extractStringFromData(dynamic data, String defaultValue) {
-    if (data == null) return defaultValue;
-    if (data is String) return data;
-    if (data is List && data.isNotEmpty) return data.first.toString();
-    return defaultValue;
+  // تحميل الإشعارات من التخزين المحلي
+  Future<void> _loadNotificationsFromCache(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = 'notifications_$userId';
+      final cachedData = prefs.getString(cacheKey);
+
+      if (cachedData != null) {
+        final List<dynamic> jsonList = json.decode(cachedData);
+        final cachedNotifications = jsonList
+            .map((json) => NotificationModel.fromJson(json))
+            .toList();
+
+        if (cachedNotifications.isNotEmpty) {
+          print('📦 تم تحميل ${cachedNotifications.length} إشعار من التخزين المحلي');
+          _notifications = cachedNotifications;
+          _filteredNotifications = List.from(_notifications);
+
+          // تحديث الواجهة فوراً بالبيانات المحلية
+          if (mounted) {
+            setState(() {});
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ خطأ في تحميل البيانات المحلية: $e');
+    }
   }
+
+  // حفظ الإشعارات في التخزين المحلي
+  Future<void> _saveNotificationsToCache(String userId, List<NotificationModel> notifications) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = 'notifications_$userId';
+      final jsonList = notifications.map((notification) => notification.toJson()).toList();
+      await prefs.setString(cacheKey, json.encode(jsonList));
+      print('💾 تم حفظ ${notifications.length} إشعار في التخزين المحلي');
+    } catch (e) {
+      print('❌ خطأ في حفظ البيانات المحلية: $e');
+    }
+  }
+
+
 
   Future<void> _loadVisitors() async {
     try {
@@ -670,123 +699,48 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     final invitationId = notification.id.replaceFirst('inv_', '');
     final localStatus = _localInvitationUpdates[invitationId];
 
-    return FutureBuilder<Map<String, dynamic>?>(
-      key: ValueKey('invitation_${notification.id}_${localStatus ?? 'original'}'),
-      future: _loadInvitationData(notification),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+    // استخدام البيانات المحفوظة في الإشعار
+    if (notification.invitationData == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade300, width: 2),
+        ),
+        child: const Text('بيانات الدعوة غير متوفرة'),
+      );
+    }
 
-        if (snapshot.hasError || !snapshot.hasData) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.shade300),
-            ),
-            child: const Text(
-              'خطأ في تحميل بيانات الدعوة',
-              style: TextStyle(color: Colors.red),
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
+    final invitationData = notification.invitationData!;
+    final invitationInfo = invitationData['invitation'] as Map<String, dynamic>;
+    final appointmentInfo = invitationData['appointment'] as Map<String, dynamic>;
+    final hostInfo = invitationData['host'] as Map<String, dynamic>;
 
-        final data = snapshot.data!;
-        final invitation = data['invitation'] as InvitationModel;
-        final appointment = data['appointment'] as AppointmentModel;
-        final host = data['host'] as UserModel;
+    // تطبيق التحديثات المحلية
+    final currentStatus = localStatus ?? invitationInfo['status'];
 
-        return _buildInteractiveInvitationCard(invitation, appointment, host);
-      },
+    return _buildInvitationCardContent(
+      notification,
+      invitationInfo,
+      appointmentInfo,
+      hostInfo,
+      currentStatus,
     );
   }
 
-  // تحميل بيانات الدعوة مع التخزين المؤقت
-  Future<Map<String, dynamic>?> _loadInvitationData(NotificationModel notification) async {
-    try {
-      final invitationId = notification.id.replaceFirst('inv_', '');
-
-      // التحقق من التخزين المؤقت أولاً
-      final cacheKey = '${invitationId}_${_localInvitationUpdates[invitationId] ?? 'original'}';
-      if (_invitationDataCache.containsKey(cacheKey)) {
-        print('📦 استخدام البيانات المخزنة مؤقتاً للدعوة: $invitationId');
-        return _invitationDataCache[cacheKey];
-      }
-
-      print('🔄 تحميل بيانات الدعوة من الخادم: $invitationId');
-
-      final invitationRecord = await _authService.pb
-          .collection(AppConstants.invitationsCollection)
-          .getOne(invitationId);
-
-      var invitation = InvitationModel.fromJson(invitationRecord.toJson());
-
-      // تطبيق التحديثات المحلية إذا وجدت
-      if (_localInvitationUpdates.containsKey(invitationId)) {
-        final localStatus = _localInvitationUpdates[invitationId]!;
-        invitation = invitation.copyWith(
-          status: localStatus,
-          respondedAt: DateTime.now(),
-        );
-      }
-
-      // تحميل الموعد أولاً
-      final appointmentRecord = await _authService.pb
-          .collection(AppConstants.appointmentsCollection)
-          .getOne(invitation.appointmentId);
-
-      final appointment = AppointmentModel.fromJson(appointmentRecord.toJson());
-
-      // تحميل المضيف
-      final hostRecord = await _authService.pb
-          .collection(AppConstants.usersCollection)
-          .getOne(appointment.hostId);
-
-      final host = UserModel.fromJson(hostRecord.toJson());
-
-      final result = {
-        'invitation': invitation,
-        'appointment': appointment,
-        'host': host,
-      };
-
-      // حفظ في التخزين المؤقت
-      _invitationDataCache[cacheKey] = result;
-      print('💾 تم حفظ بيانات الدعوة في التخزين المؤقت: $invitationId');
-
-      return result;
-    } catch (e) {
-      print('❌ خطأ في تحميل بيانات الدعوة: $e');
-      return null;
-    }
-  }
-
-  // كارد الدعوة التفاعلي الجديد
-  Widget _buildInteractiveInvitationCard(InvitationModel invitation, AppointmentModel appointment, UserModel host) {
-    final isResponded = invitation.status != 'invited';
-    final isAccepted = invitation.status == 'accepted';
-    final isRejected = invitation.status == 'rejected';
+  // بناء محتوى كارد الدعوة باستخدام البيانات المحفوظة
+  Widget _buildInvitationCardContent(
+    NotificationModel notification,
+    Map<String, dynamic> invitationInfo,
+    Map<String, dynamic> appointmentInfo,
+    Map<String, dynamic> hostInfo,
+    String currentStatus,
+  ) {
+    final isResponded = currentStatus != 'invited';
+    final isAccepted = currentStatus == 'accepted';
+    final isRejected = currentStatus == 'rejected';
 
     Color borderColor;
     if (isAccepted) {
@@ -818,7 +772,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             top: 8,
             right: 8,
             child: IconButton(
-              onPressed: () => _deleteInvitation(invitation),
+              onPressed: () => _deleteInvitationFromData(invitationInfo['id']),
               icon: const Icon(Icons.close, size: 20),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.grey.shade100,
@@ -837,43 +791,35 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 // معلومات المضيف
                 Row(
                   children: [
-                    // صورة المضيف
                     CircleAvatar(
-                      radius: 24,
-                      backgroundImage: (host.avatar?.isNotEmpty ?? false)
-                          ? NetworkImage('${AppConstants.pocketbaseUrl}/api/files/_pb_users_auth_/${host.id}/${host.avatar}')
+                      radius: 20,
+                      backgroundImage: hostInfo['avatar'] != null && hostInfo['avatar'].isNotEmpty
+                          ? NetworkImage('${_authService.pb.baseURL}/api/files/_pb_users_auth_/${hostInfo['id']}/${hostInfo['avatar']}')
                           : null,
-                      backgroundColor: Colors.blue.shade100,
-                      child: (host.avatar?.isEmpty ?? true)
+                      child: hostInfo['avatar'] == null || hostInfo['avatar'].isEmpty
                           ? Text(
-                              host.name.isNotEmpty ? host.name[0] : '؟',
-                              style: TextStyle(
-                                color: Colors.blue.shade700,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
+                              hostInfo['name']?.substring(0, 1) ?? 'م',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             )
                           : null,
                     ),
                     const SizedBox(width: 12),
-
-                    // اسم المضيف
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            host.name,
+                            hostInfo['name'] ?? 'مستخدم',
                             style: const TextStyle(
-                              fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
                           Text(
-                            'دعاك إلى موعد',
+                            'دعاك لموعد',
                             style: TextStyle(
+                              color: Colors.grey[600],
                               fontSize: 14,
-                              color: Colors.grey.shade600,
                             ),
                           ),
                         ],
@@ -885,18 +831,75 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 const SizedBox(height: 16),
 
                 // تفاصيل الموعد
-                _buildAppointmentDetails(appointment),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        appointmentInfo['title'] ?? 'موعد',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (appointmentInfo['appointmentDate'] != null)
+                        Row(
+                          children: [
+                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDateTime(appointmentInfo['appointmentDate']),
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
+                        const SizedBox(height: 4),
+                      if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${appointmentInfo['region'] ?? ''} ${appointmentInfo['building'] ?? ''}'.trim(),
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            appointmentInfo['privacy'] == 'private' ? Icons.lock : Icons.public,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            appointmentInfo['privacy'] == 'private' ? 'خاص' : 'عام',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: 16),
 
-                // أزرار الاستجابة أو حالة الاستجابة
-                if (!isResponded) ...[
-                  // أزرار القبول والرفض
+                // أزرار الاستجابة
+                if (!isResponded)
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                          onPressed: () => _respondToInvitationFromData(invitationInfo['id'], 'accepted'),
                           icon: const Icon(Icons.check, color: Colors.white),
                           label: const Text('موافق', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
@@ -910,12 +913,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _respondToInvitation(invitation, 'rejected'),
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          label: const Text('رفض', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _respondToInvitationFromData(invitationInfo['id'], 'rejected'),
+                          icon: const Icon(Icons.close, color: Colors.red),
+                          label: const Text('رفض', style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -924,9 +927,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         ),
                       ),
                     ],
-                  ),
-                ] else ...[
-                  // حالة الاستجابة
+                  )
+                else
+                  // زر حالة الاستجابة
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -949,14 +952,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         Text(
                           isAccepted ? 'تمت الموافقة' : 'تم الرفض',
                           style: TextStyle(
-                            color: isAccepted ? Colors.green.shade700 : Colors.red.shade700,
+                            color: isAccepted ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -965,151 +967,44 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  // بناء تفاصيل الموعد
-  Widget _buildAppointmentDetails(AppointmentModel appointment) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // عنوان الموعد
-          Text(
-            appointment.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // التاريخ والوقت
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 8),
-              Text(
-                _formatAppointmentDate(appointment.appointmentDate),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-
-          Row(
-            children: [
-              Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 8),
-              Text(
-                _formatAppointmentTime(appointment.appointmentDate),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ),
-
-          // المكان إذا كان متوفراً
-          if (appointment.region?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${appointment.region}${appointment.building?.isNotEmpty ?? false ? ' - ${appointment.building}' : ''}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          // الخصوصية
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: appointment.privacy == 'public' ? Colors.green.shade100 : Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              appointment.privacy == 'public' ? 'عام' : 'خاص',
-              style: TextStyle(
-                fontSize: 12,
-                color: appointment.privacy == 'public' ? Colors.green.shade700 : Colors.orange.shade700,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // الرد على الدعوة
-  Future<void> _respondToInvitation(InvitationModel invitation, String response) async {
+  // الاستجابة على الدعوة باستخدام البيانات المحفوظة
+  Future<void> _respondToInvitationFromData(String invitationId, String response) async {
     try {
-      // تحديث قاعدة البيانات
       await _authService.pb
           .collection(AppConstants.invitationsCollection)
-          .update(invitation.id, body: {
+          .update(invitationId, body: {
         'status': response,
         'respondedAt': DateTime.now().toIso8601String(),
       });
 
-      // تحديث الحالة محلياً بدلاً من إعادة التحميل الكامل
-      if (mounted) {
-        setState(() {
-          // حفظ التحديث محلياً
-          _localInvitationUpdates[invitation.id] = response;
-        });
+      setState(() {
+        _localInvitationUpdates[invitationId] = response;
+      });
 
-        // إظهار رسالة نجاح
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response == 'accepted'
-                  ? '✅ تم قبول الدعوة بنجاح'
-                  : '❌ تم رفض الدعوة',
-            ),
-            backgroundColor: response == 'accepted' ? Colors.green : Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response == 'accepted' ? 'تم قبول الدعوة' : 'تم رفض الدعوة'),
+          backgroundColor: response == 'accepted' ? Colors.green : Colors.red,
+        ),
+      );
     } catch (e) {
-      print('❌ خطأ في الرد على الدعوة: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('حدث خطأ أثناء الرد على الدعوة'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('❌ خطأ في الاستجابة على الدعوة: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء الاستجابة على الدعوة'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  // حذف الدعوة
-  Future<void> _deleteInvitation(InvitationModel invitation) async {
+  // حذف الدعوة باستخدام البيانات المحفوظة
+  Future<void> _deleteInvitationFromData(String invitationId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف الدعوة'),
-        content: const Text('هل تريد حذف هذه الدعوة؟'),
+        title: const Text('حذف الإشعار'),
+        content: const Text('هل تريد حذف هذا الإشعار؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1117,51 +1012,41 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+            child: const Text('حذف'),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      try {
-        // حذف الإشعار محلياً
-        setState(() {
-          _notifications.removeWhere((n) => n.id == 'inv_${invitation.id}');
-          _filteredNotifications.removeWhere((n) => n.id == 'inv_${invitation.id}');
-        });
+      setState(() {
+        _notifications.removeWhere((n) => n.id == 'inv_$invitationId');
+        _filteredNotifications.removeWhere((n) => n.id == 'inv_$invitationId');
+      });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم حذف الدعوة'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } catch (e) {
-        print('خطأ في حذف الدعوة: $e');
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف الإشعار')),
+      );
     }
   }
 
-  // تنسيق تاريخ الموعد
-  String _formatAppointmentDate(DateTime date) {
-    final months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ];
-
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  // تنسيق التاريخ والوقت
+  String _formatDateTime(String? dateTimeString) {
+    if (dateTimeString == null) return '';
+    try {
+      final dateTime = DateTime.parse(dateTimeString);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} - ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateTimeString;
+    }
   }
 
-  // تنسيق وقت الموعد
-  String _formatAppointmentTime(DateTime date) {
-    final hour = date.hour;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'م' : 'ص';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 
-    return '$displayHour:$minute $period';
-  }
+
+
+
+
+
 
   Color _getNotificationColor(NotificationType type) {
     switch (type) {
@@ -1247,6 +1132,9 @@ class NotificationModel {
   final String senderName;
   final String senderAvatar;
 
+  // بيانات إضافية للدعوات
+  final Map<String, dynamic>? invitationData;
+
   NotificationModel({
     required this.id,
     required this.title,
@@ -1257,7 +1145,41 @@ class NotificationModel {
     required this.senderId,
     required this.senderName,
     required this.senderAvatar,
+    this.invitationData,
   });
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
+      type: NotificationType.values.firstWhere(
+        (e) => e.toString() == json['type'],
+        orElse: () => NotificationType.general,
+      ),
+      isRead: json['isRead'] ?? false,
+      createdAt: DateTime.parse(json['createdAt']),
+      senderId: json['senderId'] ?? '',
+      senderName: json['senderName'] ?? '',
+      senderAvatar: json['senderAvatar'] ?? '',
+      invitationData: json['invitationData'] as Map<String, dynamic>?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'message': message,
+      'type': type.toString(),
+      'isRead': isRead,
+      'createdAt': createdAt.toIso8601String(),
+      'senderId': senderId,
+      'senderName': senderName,
+      'senderAvatar': senderAvatar,
+      'invitationData': invitationData,
+    };
+  }
 }
 
 class VisitorModel {
