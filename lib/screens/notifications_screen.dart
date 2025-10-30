@@ -825,12 +825,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                               overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                             ),
                             Text(
-                              'دعاك لموعد${appointmentInfo['region'] != null && appointmentInfo['region'].toString().isNotEmpty ? ' في ${appointmentInfo['region']}' : ''}',
+                              'دعاك لموعد${appointmentInfo['region'] != null && appointmentInfo['region'].toString().isNotEmpty ? ' في ${appointmentInfo['region']}' : ''} ${_getTimeAgo(notification.createdAt)}',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 13,
                               ),
                               overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
+                              textDirection: TextDirection.rtl, // عكس الاتجاه
                             ),
                           ],
                         ),
@@ -1010,6 +1011,54 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   // تنسيق التاريخ والوقت
+  // حساب الوقت المنقضي بالعربية
+  String _getTimeAgo(DateTime? dateTime) {
+    if (dateTime == null) return '';
+
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'منذ لحظات';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      if (minutes == 1) return 'منذ دقيقة';
+      if (minutes == 2) return 'منذ دقيقتين';
+      if (minutes <= 10) return 'منذ $minutes دقائق';
+      return 'منذ $minutes دقيقة';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      if (hours == 1) return 'منذ ساعة';
+      if (hours == 2) return 'منذ ساعتين';
+      if (hours <= 10) return 'منذ $hours ساعات';
+      return 'منذ $hours ساعة';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      if (days == 1) return 'منذ يوم';
+      if (days == 2) return 'منذ يومين';
+      if (days <= 10) return 'منذ $days أيام';
+      return 'منذ $days يوم';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      if (weeks == 1) return 'منذ أسبوع';
+      if (weeks == 2) return 'منذ أسبوعين';
+      if (weeks <= 10) return 'منذ $weeks أسابيع';
+      return 'منذ $weeks أسبوع';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      if (months == 1) return 'منذ شهر';
+      if (months == 2) return 'منذ شهرين';
+      if (months <= 10) return 'منذ $months أشهر';
+      return 'منذ $months شهر';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      if (years == 1) return 'منذ سنة';
+      if (years == 2) return 'منذ سنتين';
+      if (years <= 10) return 'منذ $years سنوات';
+      return 'منذ $years سنة';
+    }
+  }
+
   // تنسيق التاريخ والوقت بالعربية
   String _formatDateTimeArabic(String? dateTimeString) {
     if (dateTimeString == null) return '';
