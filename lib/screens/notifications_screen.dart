@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:sijilli/services/auth_service.dart';
 import 'package:sijilli/utils/arabic_search_utils.dart';
 import 'package:sijilli/screens/user_profile_screen.dart';
+import 'package:hijri/hijri_calendar.dart';
 
 import 'package:sijilli/config/constants.dart';
 
@@ -1059,25 +1060,86 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     }
   }
 
-  // تنسيق التاريخ والوقت بالعربية
+  // تنسيق التاريخ والوقت بالعربية (ميلادي أو هجري حسب تفضيلات المستخدم)
   String _formatDateTimeArabic(String? dateTimeString) {
     if (dateTimeString == null) return '';
     try {
       final dateTime = DateTime.parse(dateTimeString);
+
+      // تحديد نوع التاريخ بناءً على تفضيلات المستخدم
+      final userAdjustment = _authService.currentUser?.hijriAdjustment ?? 0;
+      final shouldUseHijri = userAdjustment != 0; // إذا كان يستخدم تصحيح هجري، اعرض هجري
+
+      if (shouldUseHijri) {
+        return _formatHijriDateTime(dateTime, userAdjustment);
+      } else {
+        return _formatGregorianDateTime(dateTime);
+      }
+    } catch (e) {
+      return dateTimeString;
+    }
+  }
+
+  // تنسيق التاريخ والوقت الميلادي
+  String _formatGregorianDateTime(DateTime dateTime) {
+    // أسماء الأيام بالعربية
+    const arabicDays = [
+      'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'
+    ];
+
+    // أسماء الشهور بالعربية
+    const arabicMonths = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+
+    final dayName = arabicDays[dateTime.weekday - 1];
+    final monthName = arabicMonths[dateTime.month - 1];
+
+    // تحديد صباحاً أم مساءً
+    final hour = dateTime.hour;
+    final minute = dateTime.minute;
+    String period;
+    int displayHour;
+
+    if (hour == 0) {
+      displayHour = 12;
+      period = 'صباحاً';
+    } else if (hour < 12) {
+      displayHour = hour;
+      period = 'صباحاً';
+    } else if (hour == 12) {
+      displayHour = 12;
+      period = 'مساءً';
+    } else {
+      displayHour = hour - 12;
+      period = 'مساءً';
+    }
+
+    return '$dayName ${dateTime.day}-$monthName-${dateTime.year}  $displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  // تنسيق التاريخ والوقت الهجري
+  String _formatHijriDateTime(DateTime dateTime, int adjustment) {
+    try {
+      // تحويل إلى التاريخ الهجري مع التصحيح
+      final adjustedDate = dateTime.add(Duration(days: adjustment));
+      final hijriDate = HijriCalendar.fromDate(adjustedDate);
 
       // أسماء الأيام بالعربية
       const arabicDays = [
         'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'
       ];
 
-      // أسماء الشهور بالعربية
-      const arabicMonths = [
-        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+      // أسماء الشهور الهجرية بالعربية
+      const hijriMonths = [
+        'محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر',
+        'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان',
+        'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'
       ];
 
       final dayName = arabicDays[dateTime.weekday - 1];
-      final monthName = arabicMonths[dateTime.month - 1];
+      final monthName = hijriMonths[hijriDate.hMonth - 1];
 
       // تحديد صباحاً أم مساءً
       final hour = dateTime.hour;
@@ -1099,9 +1161,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         period = 'مساءً';
       }
 
-      return '$dayName ${dateTime.day}-$monthName-${dateTime.year}  $displayHour:${minute.toString().padLeft(2, '0')} $period';
+      return '$dayName ${hijriDate.hDay}-$monthName-${hijriDate.hYear} هـ  $displayHour:${minute.toString().padLeft(2, '0')} $period';
     } catch (e) {
-      return dateTimeString;
+      // في حالة فشل التحويل، استخدم التاريخ الميلادي
+      return _formatGregorianDateTime(dateTime);
     }
   }
 
