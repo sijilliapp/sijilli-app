@@ -868,6 +868,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           style: TextStyle(color: Colors.grey[600], fontSize: 13),
                           overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                         ),
+                      const SizedBox(height: 8),
+                      // قائمة الضيوف
+                      _buildGuestsList(appointmentInfo['id']),
                     ],
                   ),
                 ),
@@ -1057,6 +1060,122 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       if (years == 2) return 'منذ سنتين';
       if (years <= 10) return 'منذ $years سنوات';
       return 'منذ $years سنة';
+    }
+  }
+
+  // بناء قائمة الضيوف الأفقية
+  Widget _buildGuestsList(String? appointmentId) {
+    if (appointmentId == null) return const SizedBox.shrink();
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadAppointmentGuests(appointmentId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final guests = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'الضيوف:',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 50, // ارتفاع ثابت للقائمة
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: guests.length,
+                itemBuilder: (context, index) {
+                  final guest = guests[index];
+                  return _buildGuestItem(guest);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // بناء عنصر ضيف واحد
+  Widget _buildGuestItem(Map<String, dynamic> guest) {
+    return GestureDetector(
+      onTap: () => _navigateToUserProfile(guest['id']),
+      child: Container(
+        margin: const EdgeInsets.only(left: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // صورة الضيف
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey.shade300,
+              backgroundImage: guest['avatar'] != null && guest['avatar'].isNotEmpty
+                  ? NetworkImage(guest['avatar'])
+                  : null,
+              child: guest['avatar'] == null || guest['avatar'].isEmpty
+                  ? Text(
+                      guest['name'].isNotEmpty ? guest['name'][0].toUpperCase() : '؟',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 6),
+            // اسم الضيف
+            Text(
+              guest['name'],
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.blue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // جلب قائمة المدعوين للموعد
+  Future<List<Map<String, dynamic>>> _loadAppointmentGuests(String appointmentId) async {
+    try {
+      final invitationRecords = await _authService.pb
+          .collection('invitations')
+          .getFullList(
+            filter: 'appointment = "$appointmentId"',
+            expand: 'guest',
+          );
+
+      List<Map<String, dynamic>> guests = [];
+      for (final record in invitationRecords) {
+        try {
+          final guestData = record.get<List<dynamic>>('expand.guest');
+          if (guestData.isNotEmpty) {
+            final guest = guestData.first;
+            guests.add({
+              'id': guest['id'] ?? '',
+              'name': guest['name'] ?? 'مستخدم',
+              'avatar': guest['avatar'] ?? '',
+              'status': record.data['status'] ?? 'invited',
+            });
+          }
+        } catch (e) {
+          // تجاهل الأخطاء في جلب بيانات الضيف
+          continue;
+        }
+      }
+      return guests;
+    } catch (e) {
+      print('❌ خطأ في جلب المدعوين: $e');
+      return [];
     }
   }
 
