@@ -1083,13 +1083,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               'الضيوف:',
               style: TextStyle(
                 color: Colors.grey[700],
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2), // تقليل من 4 إلى 2
             SizedBox(
-              height: 50, // ارتفاع ثابت للقائمة
+              height: 32, // تقليل من 50 إلى 32 (ضغط أكثر)
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: guests.length,
@@ -1110,30 +1110,28 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     return GestureDetector(
       onTap: () => _navigateToUserProfile(guest['id']),
       child: Container(
-        margin: const EdgeInsets.only(left: 12),
+        margin: const EdgeInsets.only(left: 8), // تقليل من 12 إلى 8
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // صورة الضيف
+            // صورة الضيف - تصغير بنسبة 60%
             CircleAvatar(
-              radius: 16,
+              radius: 10, // تقليل من 16 إلى 10 (حوالي 60% أصغر)
               backgroundColor: Colors.grey.shade300,
-              backgroundImage: guest['avatar'] != null && guest['avatar'].isNotEmpty
-                  ? NetworkImage(guest['avatar'])
-                  : null,
+              backgroundImage: _buildGuestImage(guest['avatar']),
               child: guest['avatar'] == null || guest['avatar'].isEmpty
                   ? Text(
                       guest['name'].isNotEmpty ? guest['name'][0].toUpperCase() : '؟',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold), // تقليل من 12 إلى 8
                     )
                   : null,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4), // تقليل من 6 إلى 4
             // اسم الضيف
             Text(
               guest['name'],
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 10, // تقليل من 12 إلى 10
                 color: Colors.blue,
                 fontWeight: FontWeight.w500,
               ),
@@ -1142,6 +1140,29 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         ),
       ),
     );
+  }
+
+  // بناء صورة الضيف مع معالجة أفضل للأخطاء
+  ImageProvider? _buildGuestImage(String? avatar) {
+    if (avatar == null || avatar.isEmpty) return null;
+
+    try {
+      // إذا كانت الصورة تبدأ بـ http أو https
+      if (avatar.startsWith('http')) {
+        return NetworkImage(avatar);
+      }
+      // إذا كانت الصورة من PocketBase
+      else {
+        final baseUrl = _authService.pb.baseURL;
+        // إزالة الشرطة المائلة الإضافية إذا وجدت
+        final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+        final imageUrl = '$cleanBaseUrl/api/files/_pb_users_auth_/$avatar';
+        return NetworkImage(imageUrl);
+      }
+    } catch (e) {
+      print('❌ خطأ في تحميل صورة الضيف: $e');
+      return null;
+    }
   }
 
   // جلب قائمة المدعوين للموعد
