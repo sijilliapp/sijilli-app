@@ -1,0 +1,54 @@
+name: Deploy to sijilli.com
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      
+    - name: Build web app
+      run: flutter build web --release
+      
+    - name: Create deployment archive
+      run: |
+        cd build/web
+        tar -czf ../../sijilli-web-deploy.tar.gz .
+        cd ../..
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sijilli-web-build
+        path: sijilli-web-deploy.tar.gz
+        
+    # إضافة خطوة النشر التلقائي (اختياري)
+    # - name: Deploy to server
+    #   uses: appleboy/scp-action@v0.1.4
+    #   with:
+    #     host: ${{ secrets.HOST }}
+    #     username: ${{ secrets.USERNAME }}
+    #     password: ${{ secrets.PASSWORD }}
+    #     source: "build/web/*"
+    #     target: "/path/to/web/root/"
+    #     strip_components: 2
+        
+    - name: Deployment Instructions
+      run: |
+        echo "🎉 Build completed successfully!"
+        echo "📦 Download sijilli-web-deploy.tar.gz from artifacts"
+        echo "🌐 Upload to sijilli.com manually or setup automatic deployment"

@@ -1118,7 +1118,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             CircleAvatar(
               radius: 10, // تقليل من 16 إلى 10 (حوالي 60% أصغر)
               backgroundColor: Colors.grey.shade300,
-              backgroundImage: _buildGuestImage(guest['avatar']),
+              backgroundImage: _buildGuestImage(guest['avatar'], guest['id']),
               child: guest['avatar'] == null || guest['avatar'].isEmpty
                   ? Text(
                       guest['name'].isNotEmpty ? guest['name'][0].toUpperCase() : '؟',
@@ -1143,8 +1143,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   // بناء صورة الضيف مع معالجة أفضل للأخطاء
-  ImageProvider? _buildGuestImage(String? avatar) {
-    if (avatar == null || avatar.isEmpty) return null;
+  ImageProvider? _buildGuestImage(String? avatar, String? userId) {
+    if (avatar == null || avatar.isEmpty || userId == null || userId.isEmpty) return null;
 
     try {
       // إذا كانت الصورة تبدأ بـ http أو https
@@ -1153,10 +1153,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       }
       // إذا كانت الصورة من PocketBase
       else {
-        final baseUrl = _authService.pb.baseURL;
-        // إزالة الشرطة المائلة الإضافية إذا وجدت
-        final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-        final imageUrl = '$cleanBaseUrl/api/files/_pb_users_auth_/$avatar';
+        // تنظيف اسم الملف من الأقواس والاقتباسات
+        final cleanAvatar = avatar.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '');
+        final imageUrl = '${AppConstants.pocketbaseUrl}/api/files/${AppConstants.usersCollection}/$userId/$cleanAvatar';
+        print('🖼️ رابط صورة الضيف: $imageUrl');
         return NetworkImage(imageUrl);
       }
     } catch (e) {

@@ -1,0 +1,23 @@
+{
+  "name": "sijilli-app",
+  "version": "1.0.0",
+  "description": "تطبيق سجلي لإدارة المواعيد والفعاليات",
+  "scripts": {
+    "build": "flutter build web --release",
+    "dev": "flutter run -d chrome",
+    "clean": "flutter clean && flutter pub get"
+  },
+  "keywords": [
+    "flutter",
+    "web",
+    "appointments",
+    "calendar",
+    "arabic",
+    "hijri"
+  ],
+  "author": "Sijilli Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

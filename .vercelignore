@@ -1,0 +1,60 @@
+# Flutter build artifacts
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+flutter_*.log
+
+# Local environment files
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Dependencies
+node_modules/
+
+# Test files
+test/
+coverage/
+
+# Android/iOS specific
+android/
+ios/
+linux/
+macos/
+windows/
+
+# Documentation
+docs/
+my_data/
+*.md
+!README.md
+
+# Archives
+*.zip
+*.tar.gz
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Git files
+.git/
+.gitignore
