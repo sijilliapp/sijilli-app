@@ -114,11 +114,15 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           // استخدام البيانات المحملة مسبقاً من expand
           // الحصول على بيانات الموعد من expand
           final appointmentTitle = record.get<String?>('expand.appointment.title') ?? 'موعد';
+          final appointmentDate = record.get<String?>('expand.appointment.appointment_date');
+          final appointmentRegion = record.get<String?>('expand.appointment.region');
+          final appointmentBuilding = record.get<String?>('expand.appointment.building');
+          final appointmentPrivacy = record.get<String?>('expand.appointment.privacy');
           final hostId = record.get<String?>('expand.appointment.host') ?? '';
 
           // الحصول على بيانات المضيف من expand
-          final hostName = record.get<String?>('expand.appointment.host.name') ?? 'مستخدم';
-          final hostAvatar = record.get<String?>('expand.appointment.host.avatar') ?? '';
+          final hostName = record.get<String?>('expand.appointment.expand.host.name') ?? 'مستخدم';
+          final hostAvatar = record.get<String?>('expand.appointment.expand.host.avatar') ?? '';
 
           // الحصول على بيانات الضيف من expand
           final guestName = record.get<String?>('expand.guest.name') ?? 'مستخدم';
@@ -142,10 +146,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             'appointment': {
               'id': record.data['appointment'],
               'title': appointmentTitle,
-              'appointmentDate': record.get<String?>('expand.appointment.appointment_date'),
-              'region': record.get<String?>('expand.appointment.region'),
-              'building': record.get<String?>('expand.appointment.building'),
-              'privacy': record.get<String?>('expand.appointment.privacy'),
+              'appointmentDate': appointmentDate,
+              'region': appointmentRegion,
+              'building': appointmentBuilding,
+              'privacy': appointmentPrivacy,
               'hostId': hostId,
             },
             'host': {
