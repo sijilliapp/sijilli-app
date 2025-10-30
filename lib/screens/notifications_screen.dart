@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:sijilli/services/auth_service.dart';
 import 'package:sijilli/utils/arabic_search_utils.dart';
+import 'package:sijilli/screens/user_profile_screen.dart';
 
 import 'package:sijilli/config/constants.dart';
 
@@ -788,55 +789,59 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
           // محتوى الكارد
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14), // تقليل من 16 إلى 14
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // معلومات المضيف
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: hostInfo['avatar'] != null && hostInfo['avatar'].isNotEmpty
-                          ? NetworkImage('${_authService.pb.baseURL}/api/files/_pb_users_auth_/${hostInfo['id']}/${hostInfo['avatar']}')
-                          : null,
-                      child: hostInfo['avatar'] == null || hostInfo['avatar'].isEmpty
-                          ? Text(
-                              hostInfo['name']?.substring(0, 1) ?? 'م',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            hostInfo['name'] ?? 'مستخدم',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            'دعاك لموعد',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                // معلومات المضيف - قابل للنقر
+                GestureDetector(
+                  onTap: () => _navigateToUserProfile(hostInfo['id']),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18, // تقليل الحجم من 20 إلى 18
+                        backgroundImage: hostInfo['avatar'] != null && hostInfo['avatar'].isNotEmpty
+                            ? NetworkImage('${_authService.pb.baseURL}/api/files/_pb_users_auth_/${hostInfo['id']}/${hostInfo['avatar']}')
+                            : null,
+                        child: hostInfo['avatar'] == null || hostInfo['avatar'].isEmpty
+                            ? Text(
+                                hostInfo['name']?.substring(0, 1) ?? 'م',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              )
+                            : null,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10), // تقليل المسافة من 12 إلى 10
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hostInfo['name'] ?? 'مستخدم',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15, // تقليل من 16 إلى 15
+                                color: Colors.blue, // إضافة لون أزرق ليظهر كرابط
+                              ),
+                            ),
+                            Text(
+                              'دعاك لموعد',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13, // تقليل من 14 إلى 13
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // تقليل من 16 إلى 12
 
                 // تفاصيل الموعد
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10), // تقليل من 12 إلى 10
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -848,10 +853,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         appointmentInfo['title'] ?? 'موعد',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 15, // تقليل من 16 إلى 15
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6), // تقليل من 8 إلى 6
                       if (appointmentInfo['appointmentDate'] != null)
                         Row(
                           children: [
@@ -864,30 +869,30 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           ],
                         ),
                       if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3), // تقليل من 4 إلى 3
                       if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
                         Row(
                           children: [
-                            Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                            Icon(Icons.location_on, size: 14, color: Colors.grey[600]), // تقليل من 16 إلى 14
                             const SizedBox(width: 4),
                             Text(
                               '${appointmentInfo['region'] ?? ''} ${appointmentInfo['building'] ?? ''}'.trim(),
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13), // إضافة fontSize: 13
                             ),
                           ],
                         ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3), // تقليل من 4 إلى 3
                       Row(
                         children: [
                           Icon(
                             appointmentInfo['privacy'] == 'private' ? Icons.lock : Icons.public,
-                            size: 16,
+                            size: 14, // تقليل من 16 إلى 14
                             color: Colors.grey[600],
                           ),
                           const SizedBox(width: 4),
                           Text(
                             appointmentInfo['privacy'] == 'private' ? 'خاص' : 'عام',
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13), // إضافة fontSize: 13
                           ),
                         ],
                       ),
@@ -895,7 +900,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // تقليل من 16 إلى 12
 
                 // أزرار الاستجابة
                 if (!isResponded)
@@ -904,26 +909,26 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _respondToInvitationFromData(invitationInfo['id'], 'accepted'),
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text('موافق', style: TextStyle(color: Colors.white)),
+                          icon: const Icon(Icons.check, color: Colors.white, size: 18), // تقليل حجم الأيقونة
+                          label: const Text('موافق', style: TextStyle(color: Colors.white, fontSize: 14)), // تقليل حجم النص
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 10), // تقليل من 12 إلى 10
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10), // تقليل من 12 إلى 10
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _respondToInvitationFromData(invitationInfo['id'], 'rejected'),
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          label: const Text('رفض', style: TextStyle(color: Colors.red)),
+                          icon: const Icon(Icons.close, color: Colors.red, size: 18), // تقليل حجم الأيقونة
+                          label: const Text('رفض', style: TextStyle(color: Colors.red, fontSize: 14)), // تقليل حجم النص
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 10), // تقليل من 12 إلى 10
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -1113,6 +1118,16 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   void _onVisitorTap(VisitorModel visitor) {
     // TODO: التنقل لملف المستخدم
+  }
+
+  // التنقل لحساب المستخدم
+  void _navigateToUserProfile(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfileScreen(userId: userId),
+      ),
+    );
   }
 }
 
