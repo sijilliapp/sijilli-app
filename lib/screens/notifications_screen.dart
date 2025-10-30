@@ -819,16 +819,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                               hostInfo['name'] ?? 'مستخدم',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15, // تقليل من 16 إلى 15
-                                color: Colors.blue, // إضافة لون أزرق ليظهر كرابط
+                                fontSize: 15,
+                                color: Colors.blue,
                               ),
+                              overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                             ),
                             Text(
-                              'دعاك لموعد',
+                              'دعاك لموعد${appointmentInfo['region'] != null && appointmentInfo['region'].toString().isNotEmpty ? ' في ${appointmentInfo['region']}' : ''}',
                               style: TextStyle(
                                 color: Colors.grey[600],
-                                fontSize: 13, // تقليل من 14 إلى 13
+                                fontSize: 13,
                               ),
+                              overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                             ),
                           ],
                         ),
@@ -853,33 +855,16 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         appointmentInfo['title'] ?? 'موعد',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 15, // تقليل من 16 إلى 15
+                          fontSize: 15,
                         ),
+                        overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                       ),
-                      const SizedBox(height: 6), // تقليل من 8 إلى 6
+                      const SizedBox(height: 6),
                       if (appointmentInfo['appointmentDate'] != null)
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              _formatDateTime(appointmentInfo['appointmentDate']),
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
-                        const SizedBox(height: 3), // تقليل من 4 إلى 3
-                      if (appointmentInfo['region'] != null || appointmentInfo['building'] != null)
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 14, color: Colors.grey[600]), // تقليل من 16 إلى 14
-                            const SizedBox(width: 4),
-                            Text(
-                              '${appointmentInfo['region'] ?? ''} ${appointmentInfo['building'] ?? ''}'.trim(),
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13), // إضافة fontSize: 13
-                            ),
-                          ],
+                        Text(
+                          _formatDateTimeArabic(appointmentInfo['appointmentDate']),
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                         ),
                       const SizedBox(height: 3), // تقليل من 4 إلى 3
                       Row(
@@ -1040,11 +1025,47 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   // تنسيق التاريخ والوقت
-  String _formatDateTime(String? dateTimeString) {
+  // تنسيق التاريخ والوقت بالعربية
+  String _formatDateTimeArabic(String? dateTimeString) {
     if (dateTimeString == null) return '';
     try {
       final dateTime = DateTime.parse(dateTimeString);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} - ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+
+      // أسماء الأيام بالعربية
+      const arabicDays = [
+        'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'
+      ];
+
+      // أسماء الشهور بالعربية
+      const arabicMonths = [
+        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+      ];
+
+      final dayName = arabicDays[dateTime.weekday - 1];
+      final monthName = arabicMonths[dateTime.month - 1];
+
+      // تحديد صباحاً أم مساءً
+      final hour = dateTime.hour;
+      final minute = dateTime.minute;
+      String period;
+      int displayHour;
+
+      if (hour == 0) {
+        displayHour = 12;
+        period = 'صباحاً';
+      } else if (hour < 12) {
+        displayHour = hour;
+        period = 'صباحاً';
+      } else if (hour == 12) {
+        displayHour = 12;
+        period = 'مساءً';
+      } else {
+        displayHour = hour - 12;
+        period = 'مساءً';
+      }
+
+      return '$dayName ${dateTime.day}-$monthName-${dateTime.year}  $displayHour:${minute.toString().padLeft(2, '0')} $period';
     } catch (e) {
       return dateTimeString;
     }
