@@ -866,21 +866,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           style: TextStyle(color: Colors.grey[600], fontSize: 13),
                           overflow: TextOverflow.ellipsis, // اختصار النصوص الطويلة
                         ),
-                      const SizedBox(height: 3), // تقليل من 4 إلى 3
-                      Row(
-                        children: [
-                          Icon(
-                            appointmentInfo['privacy'] == 'private' ? Icons.lock : Icons.public,
-                            size: 14, // تقليل من 16 إلى 14
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            appointmentInfo['privacy'] == 'private' ? 'خاص' : 'عام',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13), // إضافة fontSize: 13
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
